@@ -2,6 +2,7 @@ package com.kelifang.schedule.controller;
 
 import com.kelifang.common.Result;
 import com.kelifang.schedule.dto.GenerateRequest;
+import com.kelifang.schedule.dto.MoveRequest;
 import com.kelifang.schedule.service.ScheduleService;
 import com.kelifang.schedule.vo.GenerateResult;
 import com.kelifang.schedule.vo.ScheduleView;
@@ -9,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -50,5 +53,15 @@ public class ScheduleController {
     public Result<Void> clear() {
         scheduleService.clear();
         return Result.ok();
+    }
+
+    /**
+     * 手动把一节课挪到新时段。
+     * 返回被违反的硬约束：空数组表示挪成功，非空表示被拒且每条就是原因。
+     */
+    @PutMapping("/{id}/move")
+    public Result<List<String>> move(@PathVariable Long id, @RequestBody MoveRequest request) {
+        return Result.ok(scheduleService.move(
+                id, request.getLessonDate(), request.getStartTime(), request.getClassroomId()));
     }
 }

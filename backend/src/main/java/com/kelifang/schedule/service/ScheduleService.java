@@ -15,6 +15,7 @@ import com.kelifang.basedata.service.TeacherService;
 import com.kelifang.common.BizException;
 import com.kelifang.schedule.engine.Booking;
 import com.kelifang.schedule.engine.ClassTask;
+import com.kelifang.schedule.engine.ConstraintValidator;
 import com.kelifang.schedule.engine.GreedyScheduler;
 import com.kelifang.schedule.engine.ScheduleContext;
 import com.kelifang.schedule.entity.Schedule;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -107,6 +109,93 @@ public class ScheduleService extends ServiceImpl<ScheduleMapper, Schedule> {
     @Transactional
     public void clear() {
         remove(Wrappers.<Schedule>lambdaQuery().eq(Schedule::getLocked, 0));
+    }
+
+    /**
+     * 手动把一节课挪到新时段。
+     *
+     * 复用排课引擎的 ConstraintValidator，不另写一套规则 —— 否则"自动排出来的课合法、
+     * 手动挪一下就非法"这种不一致迟早出问题。
+     *
+     * 返回被违反的约束列表：空列表表示挪成功，非空表示被拒且原因是什么。
+     * 增量重排（自动调整受影响的其他课）不在这里做，那是下一步的事。
+     */
+    @Transactional
+    public List<String> move(Long scheduleId, LocalDate date, LocalTime start, Long classroomId) {
+        if (date == null || start == null) {
+            throw BizException.badRequest("必须指定日期和开始时间");
+        }
+
+        Schedule row = getById(scheduleId);
+        if (row == null) {
+            throw BizException.notFound("这节课不存在");
+        }
+        if (Integer.valueOf(1).equals(row.getLocked())) {
+            throw BizException.badRequest("已锁定的课表不能调整");
+        }
+
+        Clazz clazz = clazzService.getById(row.getClassId());
+        if (clazz == null) {
+            throw BizException.badRequest("这节课所属的班级已被删除");
+        }
+
+        Map<Long, List<Student>> roster = clazzService.studentsByClass(
+                clazzService.list().stream().map(Clazz::getId).toList());
+        ClassTask task = buildTask(clazz, roster);
+
+        Long roomId = classroomId != null ? classroomId : row.getClassroomId();
+        LocalTime end = start.plusMinutes(durationMinutes(task));
+
+        List<Classroom> classrooms = classroomService.list();
+        ScheduleContext context = new ScheduleContext(
+                List.of(task),
+                byId(classrooms, Classroom::getId),
+                classrooms,
+                teacherService.windowsByTeacher(List.of(clazz.getTeacherId())),
+                studentService.constraintsByStudent(List.copyOf(task.studentIds())),
+                otherBookings(scheduleId, roster));
+
+        List<String> reasons = new ConstraintValidator(context)
+                .validate(task, roomId, date, start, end);
+
+        if (reasons.isEmpty()) {
+            row.setLessonDate(date);
+            row.setStartTime(start);
+            row.setEndTime(end);
+            row.setClassroomId(roomId);
+            updateById(row);
+        }
+        return reasons;
+    }
+
+    /** 除自己以外的所有课表，作为挪课时的占用基准。 */
+    private List<Booking> otherBookings(Long excludeId, Map<Long, List<Student>> roster) {
+        return list(Wrappers.<Schedule>lambdaQuery().ne(Schedule::getId, excludeId)).stream()
+                .map(row -> new Booking(
+                        row.getClassId(),
+                        row.getTeacherId(),
+                        row.getClassroomId(),
+                        row.getLessonDate(),
+                        row.getStartTime(),
+                        row.getEndTime(),
+                        roster.getOrDefault(row.getClassId(), List.of()).stream()
+                                .map(Student::getId).collect(Collectors.toSet())))
+                .toList();
+    }
+
+    private ClassTask buildTask(Clazz clazz, Map<Long, List<Student>> roster) {
+        Course course = courseService.getById(clazz.getCourseId());
+        Teacher teacher = teacherService.getById(clazz.getTeacherId());
+        if (course == null || teacher == null) {
+            throw BizException.badRequest("班级关联的课程或教师不存在，无法校验");
+        }
+        return new ClassTask(clazz, course, teacher,
+                roster.getOrDefault(clazz.getId(), List.of()));
+    }
+
+    private static int durationMinutes(ClassTask task) {
+        Integer minutes = task.course().getDurationMinutes();
+        return (minutes == null || minutes <= 0) ? 45 : minutes;
     }
 
     // ---- 组装引擎输入 ----

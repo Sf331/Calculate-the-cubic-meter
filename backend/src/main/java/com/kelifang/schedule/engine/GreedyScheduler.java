@@ -109,8 +109,13 @@ public class GreedyScheduler {
                 candidates.add(new Candidate(date, start, used));
             }
         }
-        // 本周还没排过的日期优先，让同一门课尽量分散在不同天
-        candidates.sort(Comparator.comparingInt(c -> c.dateUsed() ? 1 : 0));
+        // 负载优先：先塞进全校当天课最少的那天，其次才是本班还没排过的那天。
+        // 原来只按"周一到周日"排，结果全挤在周一、周二，周三到周五空着 —— 那样是合法的，但课表不能用。
+        candidates.sort(Comparator
+                .comparingInt((Candidate c) -> validator.loadOn(c.date()))
+                .thenComparingInt(c -> c.dateUsed() ? 1 : 0)
+                .thenComparing(Candidate::date)
+                .thenComparing(Candidate::start));
         return candidates;
     }
 

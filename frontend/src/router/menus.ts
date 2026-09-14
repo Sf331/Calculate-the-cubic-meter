@@ -19,7 +19,12 @@ export interface MenuItem {
 
 export const MENUS: MenuItem[] = [
   { path: '/dashboard', title: '经营看板', roles: ['PRINCIPAL'] },
-  { path: '/schedule', title: '排课与课表', roles: [] },
+  {
+    path: '/schedule',
+    title: '排课与课表',
+    roles: [],
+    component: () => import('../views/schedule/index.vue')
+  },
   {
     path: '/students',
     title: '学员管理',

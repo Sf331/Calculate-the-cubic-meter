@@ -31,7 +31,28 @@
       "Bash(curl -s -b cj6.txt -X POST __TRACKED_VAR__/course -H 'Content-Type: application/json' -d '{\"name\":\"X\",\"subject\":\"数学\",\"durationMinutes\":0,\"weeklyTimes\":1}')",
       "Bash(curl -s -b cj6.txt -X POST __TRACKED_VAR__/course -H 'Content-Type: application/json' -d '{\"name\":\"X\",\"subject\":\"数学\",\"durationMinutes\":45,\"weeklyTimes\":0}')",
       "Bash(sed -n 's/.*\"total\"//p')",
-      "Bash(mysql -uroot -p123456 kelifang -e \"SELECT class_id,student_id FROM class_student ORDER BY student_id;\")"
+      "Bash(mysql -uroot -p123456 kelifang -e \"SELECT class_id,student_id FROM class_student ORDER BY student_id;\")",
+      "Bash(curl -s -b cja.txt -X POST __TRACKED_VAR__/basedata/clazz -H 'Content-Type: application/json' -d '{\"name\":\"冲突测试-资质班\",\"courseId\":3,\"teacherId\":1,\"campusId\":1,\"capacity\":20}')",
+      "Bash(curl -s -b cjb.txt -X PUT __TRACKED_VAR__/basedata/clazz/1 -H 'Content-Type: application/json' -d '{\"name\":\"初一数学A班\",\"courseId\":1,\"teacherId\":1,\"classroomId\":2,\"campusId\":1,\"capacity\":12}')",
+      "Bash(curl -s -b cjb.txt -X POST __TRACKED_VAR__/schedule/generate -H 'Content-Type: application/json' -d '{\"startDate\":\"2026-09-14\",\"weeks\":1}')",
+      "Bash(python -c \"import sys,json;[print\\(f\\\\\"{r['lessonDate']} {r['startTime']}-{r['endTime']} {r['courseName']}\\\\\"\\) for r in json.load\\(sys.stdin\\)['data']]\")",
+      "Bash(rm -f cjc.txt)",
+      "Bash(curl -s -c cjc.txt -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"principal\",\"password\":\"123456\"}')",
+      "Bash(curl -s -b cjc.txt -X POST http://localhost:8080/api/schedule/generate -H \"Content-Type: application/json\" -d '{\"startDate\":\"2026-09-14\",\"weeks\":4}')",
+      "Bash(mysql -uroot -p123456 kelifang -e \"SELECT COUNT\\(*\\) AS 课表行数 FROM schedule;\")",
+      "Bash(git commit *)",
+      "Bash(python -c ' *)",
+      "Bash(echo \"后端编译退出码 $?\")",
+      "Read(//c/Users/lenovo/Desktop/**)",
+      "Bash(rm -f cjm.txt)",
+      "Bash(curl -s -c cjm.txt -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"principal\",\"password\":\"123456\"}')",
+      "Bash(curl -s -b cjm.txt -X POST __TRACKED_VAR__/schedule/generate -H 'Content-Type: application/json' -d '{\"startDate\":\"2026-09-14\",\"weeks\":1}')",
+      "Bash(curl -s -b cjm.txt '__TRACKED_VAR__/schedule?from=2026-09-14&to=2026-09-20')",
+      "Bash(rm -f cjn.txt)",
+      "Bash(curl -s -c cjn.txt -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"principal\",\"password\":\"123456\"}')",
+      "Bash(curl -s -b cjn.txt -X POST http://localhost:8080/api/schedule/generate -H \"Content-Type: application/json\" -d '{\"startDate\":\"2026-09-14\",\"weeks\":4}')",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/)",
+      "Bash(echo \"前端: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/\\)\")"
     ]
   }
 }

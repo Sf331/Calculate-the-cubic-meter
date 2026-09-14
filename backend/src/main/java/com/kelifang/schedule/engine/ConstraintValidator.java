@@ -10,7 +10,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -27,9 +29,15 @@ public class ConstraintValidator {
     private final ScheduleContext context;
     private final List<Booking> placed = new ArrayList<>();
 
+    /** 每天已排的节数，用于负载均衡。place() 时增量维护，避免每次重算全表。 */
+    private final Map<LocalDate, Integer> loadByDate = new HashMap<>();
+
     public ConstraintValidator(ScheduleContext context) {
         this.context = context;
         this.placed.addAll(context.locked());
+        for (Booking booking : context.locked()) {
+            loadByDate.merge(booking.date(), 1, Integer::sum);
+        }
     }
 
     /** 返回被违反的硬约束。空列表表示这个时段合法。 */
@@ -57,6 +65,12 @@ public class ConstraintValidator {
     /** 把一节排定的课登记进去，后续校验都会看到它。 */
     public void place(Booking booking) {
         placed.add(booking);
+        loadByDate.merge(booking.date(), 1, Integer::sum);
+    }
+
+    /** 某天已经排了多少节课。贪心靠它把课摊开，而不是全堆在周一。 */
+    public int loadOn(LocalDate date) {
+        return loadByDate.getOrDefault(date, 0);
     }
 
     // ---- 各条硬约束 ----
