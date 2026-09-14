@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,13 +46,43 @@ public class ClazzService extends ServiceImpl<ClazzMapper, Clazz> {
 
     /** 班级学生名单。排课引擎靠它判断学生时段冲突。 */
     public List<Student> students(Long classId) {
-        List<Long> studentIds = classStudentMapper
-                .selectList(Wrappers.<ClassStudent>lambdaQuery().eq(ClassStudent::getClassId, classId))
-                .stream()
-                .map(ClassStudent::getStudentId)
-                .toList();
+        return studentsByClass(List.of(classId)).getOrDefault(classId, List.of());
+    }
 
-        return studentIds.isEmpty() ? List.of() : studentMapper.selectBatchIds(studentIds);
+    /**
+     * 批量取多个班级的名单，一次查完，避免排课时按班级循环查库。
+     * 已逻辑删除的学生会在关联表里留下孤儿行，这里靠 selectBatchIds 天然过滤掉。
+     */
+    public Map<Long, List<Student>> studentsByClass(List<Long> classIds) {
+        if (classIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<ClassStudent> rows = classStudentMapper.selectList(
+                Wrappers.<ClassStudent>lambdaQuery().in(ClassStudent::getClassId, classIds));
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, Student> byId = studentMapper
+                .selectBatchIds(rows.stream().map(ClassStudent::getStudentId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Student::getId, s -> s));
+
+        return rows.stream()
+                .filter(row -> byId.containsKey(row.getStudentId()))
+                .collect(Collectors.groupingBy(ClassStudent::getClassId,
+                        Collectors.mapping(row -> byId.get(row.getStudentId()), Collectors.toList())));
+    }
+
+    /** 某位学生在哪些班级里。学生个人课表靠它筛。 */
+    public List<Long> classIdsOfStudent(Long studentId) {
+        return classStudentMapper
+                .selectList(Wrappers.<ClassStudent>lambdaQuery()
+                        .eq(ClassStudent::getStudentId, studentId))
+                .stream()
+                .map(ClassStudent::getClassId)
+                .toList();
     }
 
     /** 整体替换名单。前端是"提交一整个名单"，不是逐个增删，所以直接删了重建。 */
