@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  # 把 .env 当 properties 文件读进来，让 ${DB_PASSWORD} 这类占位符有值可用。
+  # optional: 前缀保证没有 .env 时也能启动（走下面的默认值）。
+  config:
+    import: "optional:file:./.env[.properties]"
+  datasource:
+    # characterEncoding 必须写 UTF-8 而不是 utf8mb4 —— 后者不是合法的 Java 字符集名，
+    # Connector/J 8 会直接抛 Unsupported character encoding。驱动内部会把 UTF-8 映射到 utf8mb4。
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:kelifang}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      # 每次启动执行 schema.sql + data.sql。
+      # schema.sql 里每张表都是 DROP TABLE IF EXISTS 打头，所以重启即重建，种子数据永远干净。
+      mode: always
+      continue-on-error: false
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+kelifang:
+  storage-path: ${STORAGE_PATH:./data/uploads}

@@ -1,0 +1,36 @@
+/** 菜单与路由的唯一来源。改这里，菜单和路由同时变。 */
+
+export const ROLE_LABEL: Record<string, string> = {
+  PRINCIPAL: '校长',
+  ACADEMIC: '教务',
+  TEACHER: '教师',
+  STUDENT: '学生',
+  PARENT: '家长'
+}
+
+export interface MenuItem {
+  path: string
+  title: string
+  /** 可见角色。空数组表示所有角色可见。 */
+  roles: string[]
+}
+
+export const MENUS: MenuItem[] = [
+  { path: '/dashboard', title: '经营看板', roles: ['PRINCIPAL'] },
+  { path: '/schedule', title: '排课与课表', roles: [] },
+  { path: '/students', title: '学员管理', roles: ['PRINCIPAL', 'ACADEMIC'] },
+  { path: '/attendance', title: '签到管理', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
+  { path: '/salary', title: '工时薪酬', roles: ['PRINCIPAL', 'TEACHER'] },
+  { path: '/finance', title: '财会报表', roles: ['PRINCIPAL'] },
+  { path: '/basedata', title: '基础数据', roles: ['PRINCIPAL', 'ACADEMIC'] },
+  { path: '/content', title: '内容托管', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
+  { path: '/courseware', title: '交互课件', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
+  { path: '/homework', title: '电子作业', roles: [] },
+  { path: '/wrong-book', title: '错题本', roles: ['STUDENT'] },
+  { path: '/report', title: '学情报告', roles: ['PRINCIPAL', 'STUDENT', 'PARENT'] },
+  { path: '/lesson-account', title: '课时账户', roles: ['STUDENT', 'PARENT'] },
+  { path: '/notice', title: '通知', roles: ['STUDENT', 'PARENT'] }
+]
+
+export const menusFor = (role: string) =>
+  MENUS.filter((m) => m.roles.length === 0 || m.roles.includes(role))

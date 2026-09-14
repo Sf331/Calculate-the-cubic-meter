@@ -1,0 +1,19 @@
+/* 全局样式：只做两件事 —— 统一宋体、去掉默认间距。
+   不做主题、渐变、阴影、动画。见 .claude/CLAUDE.md 的界面规则。 */
+
+:root {
+  /* Element Plus 组件默认用无衬线字体，这里覆盖掉，否则表格表单里还是黑体 */
+  --el-font-family: "宋体", SimSun, serif;
+}
+
+* {
+  font-family: "宋体", SimSun, serif;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
