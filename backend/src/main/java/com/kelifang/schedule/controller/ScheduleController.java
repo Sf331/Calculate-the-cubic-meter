@@ -3,8 +3,10 @@ package com.kelifang.schedule.controller;
 import com.kelifang.common.Result;
 import com.kelifang.schedule.dto.GenerateRequest;
 import com.kelifang.schedule.dto.MoveRequest;
+import com.kelifang.schedule.dto.RescheduleRequest;
 import com.kelifang.schedule.service.ScheduleService;
 import com.kelifang.schedule.vo.GenerateResult;
+import com.kelifang.schedule.vo.ReschedulePlan;
 import com.kelifang.schedule.vo.ScheduleView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -63,5 +65,17 @@ public class ScheduleController {
     public Result<List<String>> move(@PathVariable Long id, @RequestBody MoveRequest request) {
         return Result.ok(scheduleService.move(
                 id, request.getLessonDate(), request.getStartTime(), request.getClassroomId()));
+    }
+
+    /**
+     * 增量重排：把一节课挪到新时段，撞到的课由引擎自动另找位置。
+     * dryRun = true 只出方案不落库，前端先展示影响面，教务确认后再传 false。
+     */
+    @PostMapping("/{id}/reschedule")
+    public Result<ReschedulePlan> reschedule(@PathVariable Long id,
+                                             @RequestBody RescheduleRequest request) {
+        return Result.ok(scheduleService.reschedule(
+                id, request.getLessonDate(), request.getStartTime(),
+                request.getClassroomId(), Boolean.TRUE.equals(request.getDryRun())));
     }
 }

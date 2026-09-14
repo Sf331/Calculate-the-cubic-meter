@@ -9,6 +9,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -33,11 +34,16 @@ public class ConstraintValidator {
     private final Map<LocalDate, Integer> loadByDate = new HashMap<>();
 
     public ConstraintValidator(ScheduleContext context) {
+        this(context, context.locked());
+    }
+
+    /**
+     * 用一个显式的占用集初始化。增量重排要反复拿不同的占用集试算，
+     * 这时以传入的 bookings 为准，不再叠加 context.locked()。
+     */
+    public ConstraintValidator(ScheduleContext context, Collection<Booking> initial) {
         this.context = context;
-        this.placed.addAll(context.locked());
-        for (Booking booking : context.locked()) {
-            loadByDate.merge(booking.date(), 1, Integer::sum);
-        }
+        initial.forEach(this::place);
     }
 
     /** 返回被违反的硬约束。空列表表示这个时段合法。 */

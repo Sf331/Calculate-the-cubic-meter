@@ -50,11 +50,41 @@ export interface MoveRequest {
   classroomId?: number
 }
 
+export interface RescheduleMove {
+  scheduleId: number
+  className: string
+  courseName: string
+  teacherName: string
+  fromDate: string
+  fromStart: string
+  fromEnd: string
+  fromClassroomName: string
+  toDate: string
+  toStart: string
+  toEnd: string
+  toClassroomName: string
+}
+
+/** 一次调课的完整方案与影响面。feasible=false 时 moves 为空、reasons 说明原因。 */
+export interface ReschedulePlan {
+  feasible: boolean
+  moves: RescheduleMove[]
+  affectedClasses: string[]
+  affectedTeachers: string[]
+  affectedStudents: number
+  reasons: string[]
+}
+
 export const scheduleApi = {
   list: (params: ScheduleQuery) => get<ScheduleView[]>('/schedule', params),
   generate: (startDate: string, weeks: number) =>
     post<GenerateResult>('/schedule/generate', { startDate, weeks }),
   clear: () => del<void>('/schedule'),
-  /** 返回空数组表示挪成功，非空表示被拒且每条就是原因 */
-  move: (id: number, data: MoveRequest) => put<string[]>(`/schedule/${id}/move`, data)
+  /** 严格模式：撞到别的课就拒绝，返回被违反的约束（空数组 = 挪成功） */
+  move: (id: number, data: MoveRequest) => put<string[]>(`/schedule/${id}/move`, data),
+  /** dryRun=true 只出方案不落库，false 才真正落库。两次跑同一算法，方案一致 */
+  reschedule: (
+    id: number,
+    data: MoveRequest & { dryRun: boolean }
+  ) => post<ReschedulePlan>(`/schedule/${id}/reschedule`, data)
 }

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { scheduleApi } from '../../api/schedule'
-import type { GenerateResult, ScheduleView } from '../../api/schedule'
+import type { GenerateResult, ReschedulePlan, ScheduleView } from '../../api/schedule'
 import { clazzApi, classroomApi, studentApi, teacherApi } from '../../api/basedata'
 
 type ViewMode = 'class' | 'teacher' | 'classroom' | 'student'
@@ -44,9 +44,10 @@ const moveTitle = ref('')
 const moveForm = ref({ id: 0, lessonDate: '', startTime: '16:00', classroomId: undefined as
   | number
   | undefined })
-/** 挪课被拒时的原因。空数组表示成功 */
-const moveReasons = ref<string[]>([])
-const moving = ref(false)
+/** 预览出来的调整方案。确认后才落库 */
+const plan = ref<ReschedulePlan>()
+const planning = ref(false)
+const applying = ref(false)
 
 // ---- 日期工具 ----
 function mondayOf(date: Date) {
@@ -171,25 +172,36 @@ function openMove(lesson: ScheduleView) {
     startTime: hm(lesson.startTime),
     classroomId: lesson.classroomId
   }
-  moveReasons.value = []
+  plan.value = undefined
   moveVisible.value = true
 }
 
-async function submitMove() {
-  moving.value = true
+const rescheduleReq = (dryRun: boolean) => ({
+  lessonDate: moveForm.value.lessonDate,
+  startTime: moveForm.value.startTime,
+  classroomId: moveForm.value.classroomId,
+  dryRun
+})
+
+/** 先出方案给教务看，不落库 */
+async function previewMove() {
+  planning.value = true
   try {
-    moveReasons.value = await scheduleApi.move(moveForm.value.id, {
-      lessonDate: moveForm.value.lessonDate,
-      startTime: moveForm.value.startTime,
-      classroomId: moveForm.value.classroomId
-    })
-    if (moveReasons.value.length === 0) {
-      ElMessage.success('已调整')
-      moveVisible.value = false
-      await load()
-    }
+    plan.value = await scheduleApi.reschedule(moveForm.value.id, rescheduleReq(true))
   } finally {
-    moving.value = false
+    planning.value = false
+  }
+}
+
+async function confirmMove() {
+  applying.value = true
+  try {
+    await scheduleApi.reschedule(moveForm.value.id, rescheduleReq(false))
+    ElMessage.success('课表已调整')
+    moveVisible.value = false
+    await load()
+  } finally {
+    applying.value = false
   }
 }
 
@@ -292,10 +304,10 @@ onMounted(async () => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="moveVisible" title="调整这节课" width="480px">
+    <el-dialog v-model="moveVisible" title="调整这节课" width="860px">
       <p>{{ moveTitle }}</p>
 
-      <el-form label-width="90px">
+      <el-form inline>
         <el-form-item label="日期">
           <el-date-picker v-model="moveForm.lessonDate" type="date" value-format="YYYY-MM-DD" />
         </el-form-item>
@@ -303,7 +315,7 @@ onMounted(async () => {
           <el-time-select v-model="moveForm.startTime" start="09:00" step="00:30" end="20:30" />
         </el-form-item>
         <el-form-item label="教室">
-          <el-select v-model="moveForm.classroomId" style="width: 100%">
+          <el-select v-model="moveForm.classroomId" style="width: 140px">
             <el-option
               v-for="o in classroomOptions"
               :key="o.value"
@@ -312,18 +324,48 @@ onMounted(async () => {
             />
           </el-select>
         </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="planning" @click="previewMove">预览方案</el-button>
+        </el-form-item>
       </el-form>
 
-      <div v-if="moveReasons.length">
-        <p>这个时段排不了，原因：</p>
-        <ul>
-          <li v-for="(reason, i) in moveReasons" :key="i">{{ reason }}</li>
-        </ul>
-      </div>
+      <template v-if="plan">
+        <template v-if="!plan.feasible">
+          <p>这个时段排不了：</p>
+          <ul>
+            <li v-for="(reason, i) in plan.reasons" :key="i">{{ reason }}</li>
+          </ul>
+        </template>
+
+        <template v-else>
+          <p>
+            需要调整 {{ plan.moves.length }} 节课，影响 {{ plan.affectedClasses.length }} 个班、
+            {{ plan.affectedTeachers.length }} 位教师、{{ plan.affectedStudents }} 名学生。
+          </p>
+          <el-table :data="plan.moves" border>
+            <el-table-column prop="className" label="班级" width="130" />
+            <el-table-column label="原时间" width="180">
+              <template #default="{ row }">
+                {{ row.fromDate }} {{ row.fromStart.slice(0, 5) }}-{{ row.fromEnd.slice(0, 5) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="fromClassroomName" label="原教室" width="80" />
+            <el-table-column label="新时间" width="180">
+              <template #default="{ row }">
+                {{ row.toDate }} {{ row.toStart.slice(0, 5) }}-{{ row.toEnd.slice(0, 5) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="toClassroomName" label="新教室" width="80" />
+            <el-table-column prop="teacherName" label="教师" />
+          </el-table>
+        </template>
+      </template>
 
       <template #footer>
         <el-button @click="moveVisible = false">取消</el-button>
-        <el-button type="primary" :loading="moving" @click="submitMove">确定</el-button>
+        <el-button v-if="plan?.feasible" type="primary" :loading="applying" @click="confirmMove">
+          确认调整
+        </el-button>
       </template>
     </el-dialog>
   </div>

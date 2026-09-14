@@ -17,10 +17,14 @@ import com.kelifang.schedule.engine.Booking;
 import com.kelifang.schedule.engine.ClassTask;
 import com.kelifang.schedule.engine.ConstraintValidator;
 import com.kelifang.schedule.engine.GreedyScheduler;
+import com.kelifang.schedule.engine.IncrementalRescheduler;
+import com.kelifang.schedule.engine.Placement;
 import com.kelifang.schedule.engine.ScheduleContext;
 import com.kelifang.schedule.entity.Schedule;
 import com.kelifang.schedule.mapper.ScheduleMapper;
 import com.kelifang.schedule.vo.GenerateResult;
+import com.kelifang.schedule.vo.RescheduleMove;
+import com.kelifang.schedule.vo.ReschedulePlan;
 import com.kelifang.schedule.vo.ScheduleView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -118,7 +124,7 @@ public class ScheduleService extends ServiceImpl<ScheduleMapper, Schedule> {
      * 手动挪一下就非法"这种不一致迟早出问题。
      *
      * 返回被违反的约束列表：空列表表示挪成功，非空表示被拒且原因是什么。
-     * 增量重排（自动调整受影响的其他课）不在这里做，那是下一步的事。
+     * 撞到别的课就拒绝，不会自动调整别的课 —— 那走 {@link #reschedule}。
      */
     @Transactional
     public List<String> move(Long scheduleId, LocalDate date, LocalTime start, Long classroomId) {
@@ -181,6 +187,115 @@ public class ScheduleService extends ServiceImpl<ScheduleMapper, Schedule> {
                         roster.getOrDefault(row.getClassId(), List.of()).stream()
                                 .map(Student::getId).collect(Collectors.toSet())))
                 .toList();
+    }
+
+    /**
+     * 增量重排：把一节课挪到新时段，撞到的课由引擎自动另找位置。
+     *
+     * dryRun = true 只出方案不落库，前端先把影响面给教务看；确认后再传 false 落库。
+     * 两次调用跑的是同一套确定性算法，所以方案一致 —— 不需要把方案回传给服务端。
+     */
+    @Transactional
+    public ReschedulePlan reschedule(Long scheduleId, LocalDate date, LocalTime start,
+                                     Long classroomId, boolean dryRun) {
+        if (date == null || start == null) {
+            throw BizException.badRequest("必须指定日期和开始时间");
+        }
+
+        Schedule target = getById(scheduleId);
+        if (target == null) {
+            throw BizException.notFound("这节课不存在");
+        }
+        if (Integer.valueOf(1).equals(target.getLocked())) {
+            throw BizException.badRequest("已锁定的课表不能调整");
+        }
+
+        ScheduleContext context = buildContext();
+        Map<Long, ClassTask> taskByClass = context.tasks().stream()
+                .collect(Collectors.toMap(t -> t.clazz().getId(), Function.identity()));
+
+        IncrementalRescheduler.Result result =
+                new IncrementalRescheduler(context, allPlacements(taskByClass))
+                        .resolve(scheduleId, date, start, classroomId);
+
+        ReschedulePlan plan = toPlan(result, context, taskByClass);
+        if (plan.feasible() && !dryRun) {
+            applyMoves(result.moves());
+        }
+        return plan;
+    }
+
+    private List<Placement> allPlacements(Map<Long, ClassTask> taskByClass) {
+        return list().stream().map(row -> {
+            ClassTask task = taskByClass.get(row.getClassId());
+            return new Placement(
+                    row.getId(),
+                    row.getClassId(),
+                    row.getTeacherId(),
+                    row.getClassroomId(),
+                    row.getLessonDate(),
+                    row.getStartTime(),
+                    row.getEndTime(),
+                    task == null ? Set.of() : task.studentIds(),
+                    Integer.valueOf(1).equals(row.getLocked()));
+        }).toList();
+    }
+
+    private void applyMoves(List<IncrementalRescheduler.Move> moves) {
+        for (IncrementalRescheduler.Move move : moves) {
+            Schedule row = getById(move.to().scheduleId());
+            if (row == null) {
+                continue;
+            }
+            row.setLessonDate(move.to().date());
+            row.setStartTime(move.to().start());
+            row.setEndTime(move.to().end());
+            row.setClassroomId(move.to().classroomId());
+            updateById(row);
+        }
+    }
+
+    /** 把引擎的方案翻成带名字的展示结构，顺带算影响面。 */
+    private ReschedulePlan toPlan(IncrementalRescheduler.Result result,
+                                  ScheduleContext context, Map<Long, ClassTask> taskByClass) {
+        if (!result.feasible()) {
+            return new ReschedulePlan(false, List.of(), List.of(), List.of(), 0, result.reasons());
+        }
+
+        List<RescheduleMove> moves = new ArrayList<>();
+        Set<String> classNames = new LinkedHashSet<>();
+        Set<String> teacherNames = new LinkedHashSet<>();
+        Set<Long> studentIds = new HashSet<>();
+
+        for (IncrementalRescheduler.Move move : result.moves()) {
+            Placement to = move.to();
+            ClassTask task = taskByClass.get(to.classId());
+
+            String className = task == null ? "班级" + to.classId() : task.clazz().getName();
+            String courseName = task == null ? null : task.course().getName();
+            String teacherName = task == null ? null : task.teacher().getName();
+
+            classNames.add(className);
+            if (teacherName != null) {
+                teacherNames.add(teacherName);
+            }
+            studentIds.addAll(to.studentIds());
+
+            moves.add(new RescheduleMove(
+                    to.scheduleId(), className, courseName, teacherName,
+                    move.from().date(), move.from().start(), move.from().end(),
+                    roomName(context, move.from().classroomId()),
+                    to.date(), to.start(), to.end(),
+                    roomName(context, to.classroomId())));
+        }
+
+        return new ReschedulePlan(true, moves,
+                List.copyOf(classNames), List.copyOf(teacherNames), studentIds.size(), List.of());
+    }
+
+    private static String roomName(ScheduleContext context, Long classroomId) {
+        Classroom classroom = context.classrooms().get(classroomId);
+        return classroom == null ? null : classroom.getName();
     }
 
     private ClassTask buildTask(Clazz clazz, Map<Long, List<Student>> roster) {
