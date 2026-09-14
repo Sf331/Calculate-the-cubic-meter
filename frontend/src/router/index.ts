@@ -14,7 +14,8 @@ const routes: RouteRecordRaw[] = [
     children: MENUS.map((m) => ({
       path: m.path.slice(1),
       name: m.path,
-      component: Placeholder,
+      // 菜单里配了 component 就用真实页面，否则落到占位页
+      component: m.component ?? Placeholder,
       meta: { title: m.title }
     }))
   },

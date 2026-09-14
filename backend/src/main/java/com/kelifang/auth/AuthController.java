@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -39,5 +42,11 @@ public class AuthController {
     @GetMapping("/me")
     public Result<CurrentUser> me() {
         return Result.ok(UserContext.get());
+    }
+
+    /** 按角色列账号。目前给"绑定家长账号"下拉用。 */
+    @GetMapping("/users")
+    public Result<List<CurrentUser>> users(@RequestParam String role) {
+        return Result.ok(authService.listByRole(role));
     }
 }

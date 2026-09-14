@@ -13,16 +13,28 @@ export interface MenuItem {
   title: string
   /** 可见角色。空数组表示所有角色可见。 */
   roles: string[]
+  /** 已实现的模块指向真实页面；不填则用占位页 */
+  component?: () => Promise<unknown>
 }
 
 export const MENUS: MenuItem[] = [
   { path: '/dashboard', title: '经营看板', roles: ['PRINCIPAL'] },
   { path: '/schedule', title: '排课与课表', roles: [] },
-  { path: '/students', title: '学员管理', roles: ['PRINCIPAL', 'ACADEMIC'] },
+  {
+    path: '/students',
+    title: '学员管理',
+    roles: ['PRINCIPAL', 'ACADEMIC'],
+    component: () => import('../views/students/index.vue')
+  },
   { path: '/attendance', title: '签到管理', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
   { path: '/salary', title: '工时薪酬', roles: ['PRINCIPAL', 'TEACHER'] },
   { path: '/finance', title: '财会报表', roles: ['PRINCIPAL'] },
-  { path: '/basedata', title: '基础数据', roles: ['PRINCIPAL', 'ACADEMIC'] },
+  {
+    path: '/basedata',
+    title: '基础数据',
+    roles: ['PRINCIPAL', 'ACADEMIC'],
+    component: () => import('../views/basedata/index.vue')
+  },
   { path: '/content', title: '内容托管', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
   { path: '/courseware', title: '交互课件', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
   { path: '/homework', title: '电子作业', roles: [] },

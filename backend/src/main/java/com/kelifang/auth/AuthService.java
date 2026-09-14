@@ -9,6 +9,8 @@ import com.kelifang.common.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -29,5 +31,14 @@ public class AuthService {
         }
 
         return new CurrentUser(user.getId(), user.getUsername(), user.getRealName(), user.getRole());
+    }
+
+    /** 按角色列账号，给"绑定家长账号"之类的下拉用。 */
+    public List<CurrentUser> listByRole(String role) {
+        return sysUserMapper.selectList(
+                        Wrappers.<SysUser>lambdaQuery().eq(SysUser::getRole, role).orderByAsc(SysUser::getId))
+                .stream()
+                .map(u -> new CurrentUser(u.getId(), u.getUsername(), u.getRealName(), u.getRole()))
+                .toList();
     }
 }

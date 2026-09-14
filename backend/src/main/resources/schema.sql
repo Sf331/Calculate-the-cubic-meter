@@ -30,6 +30,7 @@ CREATE TABLE campus (
     id          BIGINT      NOT NULL AUTO_INCREMENT,
     name        VARCHAR(50) NOT NULL COMMENT '校区名',
     address     VARCHAR(200) DEFAULT NULL,
+    deleted     TINYINT     NOT NULL DEFAULT 0,
     created_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='校区';
