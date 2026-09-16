@@ -9,7 +9,9 @@ interface Result<T> {
 }
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  // 与后端同源，靠 vite.config.ts 的 proxy 转发到 8080。
+  // 没有需要按环境改的理由，所以不走环境变量。
+  baseURL: '/api',
   timeout: 30000
 })
 

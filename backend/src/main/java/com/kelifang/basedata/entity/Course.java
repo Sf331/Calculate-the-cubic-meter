@@ -31,7 +31,7 @@ public class Course implements IdEntity {
 
     private Integer weeklyTimes;
 
-    /** 特殊课型标记，存 MySQL JSON 列：TRIAL 试听 / MAKEUP 补课 / SUBSTITUTE 代课 */
+    /** 特殊课型标记，存 JSON 文本列：TRIAL 试听 / MAKEUP 补课 / SUBSTITUTE 代课 */
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> tags;
 

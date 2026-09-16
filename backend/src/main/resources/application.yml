@@ -2,17 +2,13 @@ server:
   port: 8080
 
 spring:
-  # 把 .env 当 properties 文件读进来，让 ${DB_PASSWORD} 这类占位符有值可用。
-  # optional: 前缀保证没有 .env 时也能启动（走下面的默认值）。
-  config:
-    import: "optional:file:./.env[.properties]"
   datasource:
-    # characterEncoding 必须写 UTF-8 而不是 utf8mb4 —— 后者不是合法的 Java 字符集名，
-    # Connector/J 8 会直接抛 Unsupported character encoding。驱动内部会把 UTF-8 映射到 utf8mb4。
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:kelifang}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    # H2 内存库：数据活在 JVM 里，进程退出即消失，不需要装任何数据库。
+    # MODE=MySQL 让 schema.sql 里的 MySQL 语法（AUTO_INCREMENT、KEY、COMMENT）能被解析。
+    # DB_CLOSE_DELAY=-1 保证连接池回收连接后库不会被销毁。
+    url: jdbc:h2:mem:kelifang;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
   sql:
     init:
       # 每次启动执行 schema.sql + data.sql。
@@ -34,4 +30,5 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 kelifang:
-  storage-path: ${STORAGE_PATH:./data/uploads}
+  # 上传文件的落盘位置。demo 就一个本地目录，没有需要外部改的理由，所以写死。
+  storage-path: ./data/uploads

@@ -2,7 +2,7 @@
 
 面向中小型辅导机构的一站式智能运营 SaaS。
 
-> **这是一个演示用的 demo，不是上线系统。** 数据库密码明文、账号密码明文、没有多租户、没有权限框架 —— 这些取舍都在 `编码计划书.md` 的第一节和第十一节写明了原因。
+> **这是一个演示用的 demo，不是上线系统。** 账号密码明文、数据存在内存里、没有多租户、没有权限框架 —— 这些取舍都在 `编码计划书.md` 的第一节和第十一节写明了原因。
 
 配套文档：
 
@@ -15,9 +15,11 @@
 
 | 层 | 选型 |
 | --- | --- |
-| 后端 | Spring Boot 3.2 + Java 21 + MyBatis-Plus + MySQL 8 |
+| 后端 | Spring Boot 3.2 + Java 21 + MyBatis-Plus + H2 内存库 |
 | 前端 | Vue 3 + Vite + TypeScript + Element Plus + Pinia |
 | 建表 | `schema.sql` + `data.sql`，Spring Boot 启动时自动执行 |
+
+**数据库是 H2 内存库，零安装。** 数据活在 JVM 里，进程退出即消失 —— 不需要装任何数据库服务，克隆下来直接跑。每次启动都从 `data.sql` 重建，种子数据永远是干净的。
 
 **不用 Docker、不用 Redis、不用对象存储、不用消息队列、不用 Spring Security、不用 Flyway。**
 全部理由见 `编码计划书.md` 第二节。
@@ -29,7 +31,6 @@
 ```
 课立方/
 ├── backend/
-│   ├── .env.example                    ← 复制为 .env 后改数据库密码
 │   ├── pom.xml
 │   └── src/main/
 │       ├── java/com/kelifang/
@@ -48,7 +49,6 @@
 │           ├── schema.sql              28 张表
 │           └── data.sql                测试账号
 ├── frontend/
-│   ├── .env.example
 │   └── src/
 │       ├── api/                        请求封装，每模块一个 ts
 │       ├── router/                     路由 + 菜单（menus.ts 是唯一来源）
@@ -62,25 +62,22 @@
 
 ## 启动
 
-前置：JDK 21、Maven、Node 18+、MySQL 8。
+前置：JDK 21、Maven、Node 18+。**不需要装数据库。**
 
 ```bash
-# 1. 建库
-mysql -uroot -p -e "CREATE DATABASE kelifang DEFAULT CHARSET utf8mb4;"
-
-# 2. 后端
+# 1. 后端（不需要建库，H2 内存库启动即建表灌数据）
 cd backend
-cp .env.example .env        # 打开 .env，把 DB_PASSWORD 改成你自己的密码
-mvn spring-boot:run         # 自动建表 + 灌种子数据 → http://localhost:8080
+mvn spring-boot:run         # → http://localhost:8080
 
-# 3. 前端（另开一个终端）
+# 2. 前端（另开一个终端）
 cd frontend
-cp .env.example .env
 npm install
 npm run dev                 # → http://localhost:5173
 ```
 
 **表结构会每次启动重建。** `schema.sql` 里每张表都是 `DROP TABLE IF EXISTS` 打头，`application.yml` 里 `spring.sql.init.mode=always`。所以改了表结构直接重启即可，不用手工清库，种子数据也永远是干净的初始状态。
+
+数据全在内存里，**停止后端数据就没了** —— 这对 demo 是好事：每次演示都是同一个干净起点。
 
 ---
 
@@ -106,7 +103,7 @@ npm run dev                 # → http://localhost:5173
 
 | 模块 | 状态 |
 | --- | --- |
-| 工程骨架、`.env` 配置、建表、登录与角色 | ✅ 已完成 |
+| 工程骨架、建表、登录与角色 | ✅ 已完成 |
 | 基础数据（校区/教室/教师/课程/班级） | ✅ 已完成 |
 | 学员管理（学生 + 班级名单） | ✅ 已完成 |
 | 智能排课（引擎 / 四类课表 / 手动调课 / 增量重排） | ✅ 已完成 |
@@ -125,7 +122,7 @@ npm run dev                 # → http://localhost:5173
 ## 开发约定
 
 - **界面规则**：最简单的界面，字体统一宋体，不做任何视觉设计。见 [`.claude/CLAUDE.md`](.claude/CLAUDE.md)。
-- **私有配置**：后端 `backend/.env`，前端 `frontend/.env`，都在 `.gitignore` 里。仓库只提交 `.env.example`。所以 `git pull` 之后如果缺 `.env`，照着 example 复制一份。
+- **私有配置**：**没有 `.env`**。数据库是内存库、上传目录写死在 `application.yml`、前端 API 前缀写死在 `request.ts` —— 没有需要按环境改的值，所以四个 `.env` / `.env.example` 已全部删除。克隆下来直接跑，不用先复制配置文件。
 - **接口约定**：`/api/{module}/{resource}`，统一响应体 `{code, msg, data}`，`code` 为 0 表示成功。
 - **前端请求**：一律用 `src/api/request.ts` 导出的 `get/post/put/del`，不要直接用 axios。
 - **菜单与路由**：改 `src/router/menus.ts` 一处，菜单和路由同时生效。
@@ -139,6 +136,10 @@ npm run dev                 # → http://localhost:5173
 - 密码明文存储、明文比对
 - 没有多租户隔离，全库只有一家机构
 - 没有审计日志
-- 每次重启数据库重建，演示数据不累积
-- `data.sql` 只有 6 条基础数据，完整的演示数据（300 学生 / 15 教师 / 8 班级）在演示打磨阶段补
+- 数据全在内存里，每次重启后端重建，演示数据不累积
+- 种子数据是演示规模的（2 校区 / 5 教室 / 6 教师 / 24 学生 / 5 课程 / 6 班级），完整的演示数据（300 学生 / 15 教师 / 8 班级）在演示打磨阶段补
 - 家长端、学生端是浏览器 H5，不是微信小程序
+
+> ⚠️ **换 H2 内存库后有一处未验证项**：11 个 JSON 列所属的模块（薪酬、课件、作业等）还没开发，
+> 这些列的类型转换没跑过真实读写。清单和验证方法在 [`进度.md`](进度.md) 的「待验证」一节，
+> 碰这些模块前先看一眼。

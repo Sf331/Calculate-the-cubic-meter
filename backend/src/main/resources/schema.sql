@@ -1,10 +1,13 @@
--- 课立方 demo 数据库结构
+-- 课立方 demo 数据库结构（H2 内存库，MODE=MySQL）
 --
 -- 每次启动都会整库重建（application.yml 里 spring.sql.init.mode=always）。
 -- 因此每张表都以 DROP TABLE IF EXISTS 打头，重启即得到干净的初始状态。
 --
 -- 刻意不加外键约束：demo 阶段改表结构是常态，外键会让 DROP/重建和数据导入变麻烦，
 -- 完整性由 Service 层保证。表格顺序因此也不重要。
+--
+-- 索引名必须全库唯一（H2 的索引名是 schema 级，不像 MySQL 是表级），
+-- 所以重名的索引都带了表名前缀，例如 idx_teacher_user_id。
 
 SET NAMES utf8mb4;
 
@@ -51,7 +54,7 @@ CREATE TABLE teacher (
     deleted      TINYINT     NOT NULL DEFAULT 0,
     created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_user_id (user_id)
+    KEY idx_teacher_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='教师';
 
 DROP TABLE IF EXISTS student;
@@ -65,7 +68,7 @@ CREATE TABLE student (
     deleted         TINYINT     NOT NULL DEFAULT 0,
     created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_user_id (user_id),
+    KEY idx_student_user_id (user_id),
     KEY idx_parent (parent_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学生';
 
@@ -77,7 +80,7 @@ CREATE TABLE course (
     grade             VARCHAR(20)  DEFAULT NULL,
     duration_minutes  INT          NOT NULL DEFAULT 45 COMMENT '单次课时长',
     weekly_times      INT          NOT NULL DEFAULT 1 COMMENT '周频次',
-    tags              JSON         DEFAULT NULL COMMENT '特殊课型标记：TRIAL/MAKEUP/SUBSTITUTE/CROSS_CAMPUS',
+    tags              TEXT         DEFAULT NULL COMMENT '特殊课型标记：TRIAL/MAKEUP/SUBSTITUTE/CROSS_CAMPUS',
     deleted           TINYINT      NOT NULL DEFAULT 0,
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
@@ -106,8 +109,8 @@ CREATE TABLE clazz (
     deleted       TINYINT     NOT NULL DEFAULT 0,
     created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_course (course_id),
-    KEY idx_teacher (teacher_id)
+    KEY idx_clazz_course (course_id),
+    KEY idx_clazz_teacher (teacher_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级';
 
 DROP TABLE IF EXISTS class_student;
@@ -128,7 +131,7 @@ CREATE TABLE teacher_availability (
     start_time  TIME     NOT NULL,
     end_time    TIME     NOT NULL,
     PRIMARY KEY (id),
-    KEY idx_teacher (teacher_id)
+    KEY idx_avail_teacher (teacher_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='教师可用时段';
 
 DROP TABLE IF EXISTS student_constraint;
@@ -140,7 +143,7 @@ CREATE TABLE student_constraint (
     start_time  TIME        NOT NULL,
     end_time    TIME        NOT NULL,
     PRIMARY KEY (id),
-    KEY idx_student (student_id)
+    KEY idx_constraint_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学生排课约束';
 
 -- ============================================================
@@ -162,7 +165,7 @@ CREATE TABLE schedule (
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_class_date (class_id, lesson_date),
-    KEY idx_teacher_date (teacher_id, lesson_date),
+    KEY idx_schedule_teacher_date (teacher_id, lesson_date),
     KEY idx_classroom_date (classroom_id, lesson_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='排课结果（四类课表均由本表派生）';
 
@@ -182,7 +185,7 @@ CREATE TABLE attendance (
     created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_schedule_student (schedule_id, student_id),
-    KEY idx_student (student_id)
+    KEY idx_attendance_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='签到记录（全链路凭证起点）';
 
 DROP TABLE IF EXISTS lesson_account;
@@ -210,7 +213,7 @@ CREATE TABLE lesson_transaction (
     remark         VARCHAR(200) DEFAULT NULL,
     created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_student (student_id),
+    KEY idx_account_student (student_id),
     KEY idx_account (account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课时流水（只增不改，余额由本表累加得出）';
 
@@ -226,7 +229,7 @@ CREATE TABLE leave_request (
     makeup_schedule_id BIGINT      DEFAULT NULL COMMENT '补课安排落定后指向新的 schedule',
     created_at         DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_student (student_id),
+    KEY idx_transaction_student (student_id),
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='请假与补课';
 
@@ -238,13 +241,13 @@ DROP TABLE IF EXISTS salary_rule;
 CREATE TABLE salary_rule (
     id             BIGINT   NOT NULL AUTO_INCREMENT,
     teacher_id     BIGINT   DEFAULT NULL COMMENT 'NULL 表示机构默认规则',
-    tier_config    JSON     DEFAULT NULL COMMENT '班型/人数分档单价',
-    special_rate   JSON     DEFAULT NULL COMMENT '特殊课型差异单价或补贴',
-    bonus_config   JSON     DEFAULT NULL COMMENT '奖励项',
-    deduct_config  JSON     DEFAULT NULL COMMENT '扣款项',
+    tier_config    TEXT     DEFAULT NULL COMMENT '班型/人数分档单价',
+    special_rate   TEXT     DEFAULT NULL COMMENT '特殊课型差异单价或补贴',
+    bonus_config   TEXT     DEFAULT NULL COMMENT '奖励项',
+    deduct_config  TEXT     DEFAULT NULL COMMENT '扣款项',
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_teacher (teacher_id)
+    KEY idx_salary_rule_teacher (teacher_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='计酬规则';
 
 DROP TABLE IF EXISTS workhour_record;
@@ -259,7 +262,7 @@ CREATE TABLE workhour_record (
     amount        DECIMAL(10,2) NOT NULL DEFAULT 0,
     created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_teacher_date (teacher_id, work_date)
+    KEY idx_workhour_teacher_date (teacher_id, work_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工时明细（签到核销时自动生成）';
 
 DROP TABLE IF EXISTS payslip;
@@ -268,7 +271,7 @@ CREATE TABLE payslip (
     teacher_id    BIGINT        NOT NULL,
     period        VARCHAR(7)    NOT NULL COMMENT 'yyyy-MM',
     total_amount  DECIMAL(10,2) NOT NULL DEFAULT 0,
-    detail        JSON          DEFAULT NULL COMMENT '生成时的逐项快照，之后改规则不影响历史工资单',
+    detail        TEXT          DEFAULT NULL COMMENT '生成时的逐项快照，之后改规则不影响历史工资单',
     created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_teacher_period (teacher_id, period)
@@ -290,7 +293,7 @@ CREATE TABLE fund_transaction (
     remark      VARCHAR(200)  DEFAULT NULL,
     created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_student (student_id),
+    KEY idx_leave_student (student_id),
     KEY idx_type_date (type, occur_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资金流水（只增不改）';
 
@@ -314,7 +317,7 @@ CREATE TABLE content_asset (
     deleted          TINYINT      NOT NULL DEFAULT 0,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_course (course_id)
+    KEY idx_asset_course (course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内容资产';
 
 DROP TABLE IF EXISTS courseware;
@@ -333,12 +336,12 @@ CREATE TABLE courseware_record (
     schedule_id    BIGINT      DEFAULT NULL,
     student_id     BIGINT      NOT NULL,
     component_id   VARCHAR(50) DEFAULT NULL COMMENT '对应课件 JSON 里组件的 id',
-    answer         JSON        DEFAULT NULL,
+    answer         TEXT        DEFAULT NULL,
     correct        TINYINT     DEFAULT NULL,
     created_at     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_courseware (courseware_id),
-    KEY idx_student (student_id)
+    KEY idx_cw_record_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课件互动结果回流';
 
 -- ============================================================
@@ -353,8 +356,8 @@ CREATE TABLE question (
     knowledge_point  VARCHAR(100) DEFAULT NULL COMMENT '错题本按本字段聚类',
     type             VARCHAR(20)  NOT NULL COMMENT 'SINGLE/MULTI/BLANK/SUBJECTIVE',
     stem             TEXT,
-    options          JSON         DEFAULT NULL,
-    answer           JSON         DEFAULT NULL COMMENT '多答案时为数组，命中任一即判对',
+    options          TEXT         DEFAULT NULL,
+    answer           TEXT         DEFAULT NULL COMMENT '多答案时为数组，命中任一即判对',
     score            DECIMAL(5,2) NOT NULL DEFAULT 0,
     deleted          TINYINT      NOT NULL DEFAULT 0,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -367,7 +370,7 @@ CREATE TABLE homework (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
     class_id      BIGINT       NOT NULL,
     name          VARCHAR(200) NOT NULL,
-    question_ids  JSON         DEFAULT NULL COMMENT '题目 id 有序数组',
+    question_ids  TEXT         DEFAULT NULL COMMENT '题目 id 有序数组',
     total_score   DECIMAL(6,2) NOT NULL DEFAULT 0,
     due_time      DATETIME     DEFAULT NULL,
     publisher_id  BIGINT       DEFAULT NULL,
@@ -382,7 +385,7 @@ CREATE TABLE homework_submission (
     homework_id       BIGINT       NOT NULL,
     student_id        BIGINT       NOT NULL,
     submit_time       DATETIME     DEFAULT NULL,
-    attachment_paths  JSON         DEFAULT NULL COMMENT '图片提交的本地相对路径数组',
+    attachment_paths  TEXT         DEFAULT NULL COMMENT '图片提交的本地相对路径数组',
     score             DECIMAL(6,2) DEFAULT NULL,
     status            VARCHAR(20)  NOT NULL DEFAULT 'SUBMITTED' COMMENT 'SUBMITTED/GRADED',
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -395,7 +398,7 @@ CREATE TABLE submission_answer (
     id             BIGINT       NOT NULL AUTO_INCREMENT,
     submission_id  BIGINT       NOT NULL,
     question_id    BIGINT       NOT NULL,
-    answer         JSON         DEFAULT NULL,
+    answer         TEXT         DEFAULT NULL,
     score          DECIMAL(5,2) DEFAULT NULL,
     correct        TINYINT      DEFAULT NULL COMMENT '客观题自动判分结果，主观题为 NULL',
     comment        VARCHAR(500) DEFAULT NULL COMMENT '教师评语',
@@ -413,7 +416,7 @@ CREATE TABLE wrong_question (
     last_wrong_time  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_student_question (student_id, question_id),
-    KEY idx_student (student_id)
+    KEY idx_wrong_question_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='错题本';
 
 -- ============================================================
