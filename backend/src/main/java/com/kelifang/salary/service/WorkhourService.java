@@ -99,8 +99,10 @@ public class WorkhourService extends ServiceImpl<WorkhourRecordMapper, WorkhourR
 
         Map<Long, Schedule> schedules = byId(scheduleService.listByIds(
                 rows.stream().map(WorkhourRecord::getScheduleId).distinct().toList()), Schedule::getId);
-        Map<Long, Clazz> classes = byId(clazzService.listByIds(schedules.values().stream()
-                        .map(Schedule::getClassId).distinct().toList()), Clazz::getId);
+        List<Long> classIds = schedules.values().stream()
+                .map(Schedule::getClassId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, Clazz> classes=classIds.isEmpty()?Map.of()
+                :byId(clazzService.listByIds(classIds), Clazz::getId);
         List<Long> courseIds = classes.values().stream()
                 .map(Clazz::getCourseId).filter(Objects::nonNull).distinct().toList();
         Map<Long, Course> courses = courseIds.isEmpty()
