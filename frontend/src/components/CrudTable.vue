@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /** 通用 CRUD 表格，字段配置驱动。后续几个基础数据实体都复用它。 */
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { upload } from '../api/request'
 import type { CrudApi, CrudField } from './crud'
 
 const props = defineProps<{ fields: CrudField[]; api: CrudApi; actionWidth?: number }>()
@@ -19,6 +20,15 @@ const form = ref<Record<string, any>>({})
 const optionsMap = ref<Record<string, { label: string; value: any }[]>>({})
 
 const optionsOf = (field: CrudField) => optionsMap.value[field.prop] ?? field.options ?? []
+
+/**
+ * 表格列。文件字段不展示 —— 落盘名是 UUID，显示出来只是一串乱码，
+ * 用资产自己的名称就够了，文件走页面加的下载按钮。
+ *
+ * 这里必须用 computed 过滤，不能在 el-table-column 上同时写 v-for 和 v-if：
+ * Vue 3 里 v-if 优先级更高，拿不到 field 这个 v-for 作用域变量。
+ */
+const columns = computed(() => props.fields.filter((field) => field.type !== 'file'))
 
 async function load() {
   loading.value = true
@@ -77,6 +87,12 @@ async function openDialog() {
   dialogVisible.value = true
 }
 
+/** file 字段的上传。走 api/request 的 upload 助手，错误提示和 401 跳转都现成的。 */
+async function doUpload(option: any, field: CrudField) {
+  form.value[field.prop] = await upload<string>(field.uploadUrl!, option.file)
+  ElMessage.success('已上传')
+}
+
 async function submit() {
   for (const field of props.fields) {
     // 注意空数组是 truthy，不能只用 !value 判断
@@ -121,7 +137,7 @@ onMounted(async () => {
 
     <el-table :data="rows" v-loading="loading" border style="margin-top: 12px">
       <el-table-column
-        v-for="field in fields"
+        v-for="field in columns"
         :key="field.prop"
         :label="field.label"
         :width="field.width"
@@ -161,12 +177,14 @@ onMounted(async () => {
             :min="0"
             :precision="field.precision"
             :step="field.precision ? 0.1 : 1"
+            :disabled="field.readonly"
             style="width: 100%"
           />
           <el-select
             v-else-if="field.type === 'select' || field.type === 'multiselect'"
             v-model="form[field.prop]"
             :multiple="field.type === 'multiselect'"
+            :disabled="field.readonly"
             style="width: 100%"
           >
             <el-option
@@ -176,10 +194,19 @@ onMounted(async () => {
               :value="option.value"
             />
           </el-select>
+          <template v-else-if="field.type === 'file'">
+            <el-upload :show-file-list="false" :http-request="(o: any) => doUpload(o, field)">
+              <el-button>选择文件</el-button>
+            </el-upload>
+            <span v-if="form[field.prop]" style="margin-left: 8px">
+              {{ form[field.prop] }}
+            </span>
+          </template>
           <el-input
             v-else
             v-model="form[field.prop]"
             :type="field.type === 'textarea' ? 'textarea' : 'text'"
+            :disabled="field.readonly"
           />
         </el-form-item>
       </el-form>

@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 验收测试的 HTTP 客户端：走真实端口、真实 cookie 会话。
@@ -26,12 +27,14 @@ public class AcceptanceApi {
     /** data.sql 里 5 个测试账号的统一口令 */
     public static final String PASSWORD = "123456";
 
+    private final String origin;
     private final String base;
     private final ObjectMapper json;
     private final HttpClient http;
 
-    private AcceptanceApi(String base, ObjectMapper json) {
-        this.base = base;
+    private AcceptanceApi(String origin, ObjectMapper json) {
+        this.origin = origin;
+        this.base = origin + "/api";
         this.json = json;
         // CookieManager 自己存 JSESSIONID，不用手工搬 cookie
         this.http = HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
@@ -39,7 +42,7 @@ public class AcceptanceApi {
 
     /** 一个实例一个会话。换角色就再开一个，cookie 不会串。 */
     public static AcceptanceApi login(int port, ObjectMapper json, String username) {
-        AcceptanceApi api = new AcceptanceApi("http://localhost:" + port + "/api", json);
+        AcceptanceApi api = new AcceptanceApi("http://localhost:" + port, json);
         Resp resp = api.post("/auth/login", Map.of("username", username, "password", PASSWORD));
         if (!resp.ok()) {
             throw new IllegalStateException("以 " + username + " 登录失败：" + resp.text());
@@ -67,6 +70,43 @@ public class AcceptanceApi {
 
     public Resp delete(String path) {
         return send(HttpRequest.newBuilder(uri(path)).DELETE().build());
+    }
+
+    /** multipart 上传，字段名固定 file。用来验文件上传接口。 */
+    public Resp postFile(String path, String filename, byte[] content) {
+        String boundary = "----kelifang" + UUID.randomUUID().toString().replace("-", "");
+        byte[] head = ("--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n"
+                + "Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8);
+        byte[] tail = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+
+        byte[] body = new byte[head.length + content.length + tail.length];
+        System.arraycopy(head, 0, body, 0, head.length);
+        System.arraycopy(content, 0, body, head.length, content.length);
+        System.arraycopy(tail, 0, body, head.length + content.length, tail.length);
+
+        return send(HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .build());
+    }
+
+    /**
+     * 取原始字节。**路径不带 /api 前缀** —— 上传的文件在 /uploads/** 下，是根路径的静态资源。
+     * 用来证明"上传落盘了"和"静态映射真的通"，而不是只看上传接口返回了个文件名。
+     */
+    public byte[] getBytes(String rootPath) {
+        try {
+            HttpResponse<byte[]> resp = http.send(
+                    HttpRequest.newBuilder(URI.create(origin + rootPath)).GET().build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            if (resp.statusCode() != 200) {
+                throw new AssertionError("GET " + rootPath + " -> HTTP " + resp.statusCode());
+            }
+            return resp.body();
+        } catch (IOException | InterruptedException e) {
+            throw new IllegalStateException("请求失败：" + rootPath, e);
+        }
     }
 
     private Resp send(HttpRequest request) {

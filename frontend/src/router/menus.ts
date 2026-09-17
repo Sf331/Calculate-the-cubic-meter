@@ -60,7 +60,12 @@ export const MENUS: MenuItem[] = [
     roles: ['PRINCIPAL', 'ACADEMIC'],
     component: () => import('../views/basedata/index.vue')
   },
-  { path: '/content', title: '内容托管', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
+  {
+    path: '/content',
+    title: '内容托管',
+    roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'],
+    component: () => import('../views/content/index.vue')
+  },
   { path: '/courseware', title: '交互课件', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
   { path: '/homework', title: '电子作业', roles: [] },
   { path: '/wrong-book', title: '错题本', roles: ['STUDENT'] },
