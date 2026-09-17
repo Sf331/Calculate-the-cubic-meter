@@ -32,6 +32,9 @@ public class Teacher implements IdEntity {
 
     private BigDecimal baseSalary;
 
+    /** 固定课时单价（元/教学课时）。课时薪酬 = 本单价 × 有效教学课时 */
+    private BigDecimal hourlyRate;
+
     @JsonIgnore
     @TableLogic
     private Integer deleted;

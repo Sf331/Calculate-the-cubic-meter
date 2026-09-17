@@ -48,7 +48,8 @@ const teacherFields: CrudField[] = [
     required: true,
     defaultValue: 'HOURLY'
   },
-  { prop: 'baseSalary', label: '底薪', type: 'number', precision: 2 }
+  { prop: 'baseSalary', label: '底薪', type: 'number', precision: 2 },
+  { prop: 'hourlyRate', label: '课时单价', type: 'number', precision: 2, defaultValue: 0 }
 ]
 
 const courseFields: CrudField[] = [

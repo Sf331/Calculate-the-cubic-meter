@@ -29,13 +29,14 @@ INSERT INTO classroom (id, campus_id, name, capacity) VALUES
 
 -- ---------- 教师 ----------
 -- 科目必须和所授课程的科目一致，否则硬约束里的"资质匹配"会拒掉排课。
-INSERT INTO teacher (id, user_id, name, subject, campus_id, salary_type, base_salary) VALUES
-  (1, 3, '李老师', '数学', 1, 'BASE_HOURLY', 2000.00),
-  (2, NULL, '王老师', '数学', 1, 'HOURLY',    0.00),
-  (3, NULL, '赵老师', '英语', 1, 'HOURLY',    0.00),
-  (4, NULL, '陈老师', '语文', 2, 'MONTHLY',   6000.00),
-  (5, NULL, '刘老师', '物理', 2, 'HOURLY',    0.00),
-  (6, NULL, '孙老师', '数学', 2, 'BASE_HOURLY', 1800.00);
+-- hourly_rate 是固定课时单价，课时薪酬按它乘有效教学课时算。
+INSERT INTO teacher (id, user_id, name, subject, campus_id, salary_type, base_salary, hourly_rate) VALUES
+  (1, 3, '李老师', '数学', 1, 'BASE_HOURLY', 2000.00, 200.00),
+  (2, NULL, '王老师', '数学', 1, 'HOURLY',    0.00, 150.00),
+  (3, NULL, '赵老师', '英语', 1, 'HOURLY',    0.00, 160.00),
+  (4, NULL, '陈老师', '语文', 2, 'MONTHLY',   6000.00, 180.00),
+  (5, NULL, '刘老师', '物理', 2, 'HOURLY',    0.00, 170.00),
+  (6, NULL, '孙老师', '数学', 2, 'BASE_HOURLY', 1800.00, 190.00);
 
 -- ---------- 学生 ----------
 INSERT INTO student (id, user_id, parent_user_id, name, grade, campus_id) VALUES
@@ -117,3 +118,31 @@ INSERT INTO teacher_availability (teacher_id, weekday, start_time, end_time) VAL
 INSERT INTO student_constraint (student_id, type, weekday, start_time, end_time) VALUES
   (1,  'UNAVAILABLE', 3, '16:00', '21:00'),
   (17, 'UNAVAILABLE', 6, '09:00', '21:00');
+
+-- ---------- 课时账户 ----------
+-- 每个"学生 × 所上课程"一个账户，统一先充 40 课时。
+-- 用 INSERT ... SELECT 从班级名单生成，避免手写 48 行。
+INSERT INTO lesson_account (student_id, course_id, total_hours, consumed_hours, remaining_hours)
+SELECT DISTINCT cs.student_id, c.course_id, 40.00, 0.00, 40.00
+FROM class_student cs
+JOIN clazz c ON c.id = cs.class_id;
+
+-- 购课流水。remaining_hours 必须恒等于本表 hours 之和，这里充 40 所以余额也是 40。
+INSERT INTO lesson_transaction (student_id, account_id, type, hours, balance_after, remark)
+SELECT student_id, id, 'RECHARGE', total_hours, total_hours, '种子数据：首次购课'
+FROM lesson_account;
+
+-- ---------- 预收账款 ----------
+-- ref_id 指向 lesson_account.id，这样"该学员该课程已收费总额"就是这批流水之和，
+-- 课时单价 = 已收费总额 / 已购课时数，不需要在账户上再冗余一个金额列。
+-- 单价按课程拉开档次（数学 120/130、英语 100、语文 90、物理 110），数字不至于太齐整。
+INSERT INTO fund_transaction (student_id, type, amount, direction, ref_id, occur_date, remark)
+SELECT la.student_id, 'PRE_RECEIVE',
+       la.total_hours * CASE la.course_id
+           WHEN 1 THEN 120.00
+           WHEN 2 THEN 130.00
+           WHEN 3 THEN 100.00
+           WHEN 4 THEN 90.00
+           ELSE 110.00 END,
+       'IN', la.id, '2026-09-01', '种子数据：预收学费'
+FROM lesson_account la;

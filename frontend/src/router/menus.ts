@@ -31,7 +31,12 @@ export const MENUS: MenuItem[] = [
     roles: ['PRINCIPAL', 'ACADEMIC'],
     component: () => import('../views/students/index.vue')
   },
-  { path: '/attendance', title: '签到管理', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
+  {
+    path: '/attendance',
+    title: '签到管理',
+    roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'],
+    component: () => import('../views/attendance/index.vue')
+  },
   { path: '/salary', title: '工时薪酬', roles: ['PRINCIPAL', 'TEACHER'] },
   { path: '/finance', title: '财会报表', roles: ['PRINCIPAL'] },
   {
@@ -45,7 +50,12 @@ export const MENUS: MenuItem[] = [
   { path: '/homework', title: '电子作业', roles: [] },
   { path: '/wrong-book', title: '错题本', roles: ['STUDENT'] },
   { path: '/report', title: '学情报告', roles: ['PRINCIPAL', 'STUDENT', 'PARENT'] },
-  { path: '/lesson-account', title: '课时账户', roles: ['STUDENT', 'PARENT'] },
+  {
+    path: '/lesson-account',
+    title: '课时账户',
+    roles: ['STUDENT', 'PARENT'],
+    component: () => import('../views/lesson-account/index.vue')
+  },
   { path: '/notice', title: '通知', roles: ['STUDENT', 'PARENT'] }
 ]
 

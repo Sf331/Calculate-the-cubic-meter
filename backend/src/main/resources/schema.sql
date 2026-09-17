@@ -51,6 +51,7 @@ CREATE TABLE teacher (
     campus_id    BIGINT      DEFAULT NULL,
     salary_type  VARCHAR(20) NOT NULL DEFAULT 'HOURLY' COMMENT 'HOURLY/BASE_HOURLY/MONTHLY',
     base_salary  DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '底薪，仅 BASE_HOURLY/MONTHLY 用',
+    hourly_rate  DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '固定课时单价（元/教学课时）。课时薪酬 = 本单价 × 有效教学课时',
     deleted      TINYINT     NOT NULL DEFAULT 0,
     created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),

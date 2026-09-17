@@ -41,6 +41,20 @@ public class TeacherService extends ServiceImpl<TeacherMapper, Teacher> {
         if (teacher.getBaseSalary().signum() < 0) {
             throw BizException.badRequest("底薪不能为负数");
         }
+        if (teacher.getHourlyRate() == null) {
+            teacher.setHourlyRate(BigDecimal.ZERO);
+        }
+        if (teacher.getHourlyRate().signum() < 0) {
+            throw BizException.badRequest("课时单价不能为负数");
+        }
+    }
+
+    /** 登录账号反查教师。教师端点名时用来判断"这是不是我的课"。 */
+    public Teacher byUserId(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return getOne(Wrappers.<Teacher>lambdaQuery().eq(Teacher::getUserId, userId));
     }
 
     /**
