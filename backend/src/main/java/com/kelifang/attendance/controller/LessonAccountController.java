@@ -1,5 +1,6 @@
 package com.kelifang.attendance.controller;
 
+import com.kelifang.attendance.dto.RechargeRequest;
 import com.kelifang.attendance.entity.LessonTransaction;
 import com.kelifang.attendance.service.LessonAccountService;
 import com.kelifang.attendance.vo.LessonAccountView;
@@ -7,6 +8,8 @@ import com.kelifang.common.Result;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,5 +34,16 @@ public class LessonAccountController {
     @GetMapping("/{id}/transaction")
     public Result<List<LessonTransaction>> transactions(@PathVariable Long id) {
         return Result.ok(lessonAccountService.transactions(id));
+    }
+
+    /** 收费开课。没有账户顺手开一个，返回充值后的账户状态。 */
+    @PostMapping("/recharge")
+    public Result<LessonAccountView> recharge(@RequestBody RechargeRequest request) {
+        return Result.ok(lessonAccountService.recharge(
+                request.getStudentId(),
+                request.getCourseId(),
+                request.getHours(),
+                request.getAmount(),
+                request.getRemark()));
     }
 }

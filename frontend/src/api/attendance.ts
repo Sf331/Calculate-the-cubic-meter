@@ -92,9 +92,19 @@ export const TRANSACTION_LABEL: Record<string, string> = {
   ADJUST: '调整'
 }
 
+export interface RechargeRequest {
+  studentId: number
+  courseId: number
+  hours: number
+  amount: number
+  remark?: string
+}
+
 export const lessonAccountApi = {
   /** 不传 studentId 就是"我能看的全部"：学生是本人，家长是孩子，校长教务是全部 */
   list: (studentId?: number) =>
     get<LessonAccountView[]>('/lesson-account', studentId ? { studentId } : undefined),
-  transactions: (id: number) => get<LessonTransaction[]>(`/lesson-account/${id}/transaction`)
+  transactions: (id: number) => get<LessonTransaction[]>(`/lesson-account/${id}/transaction`),
+  /** 收费开课。没有账户会顺手开一个，返回充值后的账户状态。只有校长和教务能调 */
+  recharge: (data: RechargeRequest) => post<LessonAccountView>('/lesson-account/recharge', data)
 }

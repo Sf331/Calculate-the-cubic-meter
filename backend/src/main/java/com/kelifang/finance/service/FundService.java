@@ -49,6 +49,23 @@ public class FundService extends ServiceImpl<FundTransactionMapper, FundTransact
     }
 
     /**
+     * 收取预收款：学员买课时，钱先进预收账款，等上课了再由 confirmRevenue 确认成收入。
+     * ref_id 指向 lesson_account.id，课时单价才拿得到"这个账户一共收过多少钱"。
+     */
+    public void receivePrePayment(Long studentId, BigDecimal amount, Long accountId,
+                                  LocalDate occurDate, String remark) {
+        FundTransaction row = new FundTransaction();
+        row.setStudentId(studentId);
+        row.setType("PRE_RECEIVE");
+        row.setAmount(amount);
+        row.setDirection("IN");
+        row.setRefId(accountId);
+        row.setOccurDate(occurDate);
+        row.setRemark(remark);
+        save(row);
+    }
+
+    /**
      * 按课时消耗确认收入。写在同一事务里，金额一个子儿不差：
      * 冲减预收账款（OUT）+ 确认当期收入（IN），
      * ref_id 都指向 attendance.id，报表能一路溯源回签到。

@@ -8,8 +8,10 @@ import {
   campusApi,
   clazzApi,
   clazzStudentApi,
+  courseApi,
   studentApi
 } from '../../api/basedata'
+import { lessonAccountApi } from '../../api/attendance'
 import { fetchUsersByRole } from '../../api/auth'
 
 const activeTab = ref('student')
@@ -30,6 +32,53 @@ const studentFields: CrudField[] = [
   { prop: 'campusId', label: '所属校区', type: 'select', loadOptions: campusOptions },
   { prop: 'parentUserId', label: '家长账号', type: 'select', loadOptions: parentOptions }
 ]
+
+// ---- 收费开课 ----
+const rechargeVisible = ref(false)
+const rechargeTarget = ref<{ id?: number; name?: string }>({})
+const rechargeForm = ref({ courseId: undefined as number | undefined, hours: 40, amount: 0, remark: '' })
+const courseOptions = ref<{ label: string; value: number }[]>([])
+const recharging = ref(false)
+
+/** 新建的学生没有课时账户，只能从这里收费开课，之后才点得了名 */
+async function openRecharge(row: any) {
+  rechargeTarget.value = row
+  rechargeForm.value = { courseId: undefined, hours: 40, amount: 0, remark: '' }
+  courseOptions.value = (await courseApi.page(1, 200)).records.map((c) => ({
+    label: c.name,
+    value: c.id!
+  }))
+  rechargeVisible.value = true
+}
+
+async function submitRecharge() {
+  const { courseId, hours, amount, remark } = rechargeForm.value
+  if (!courseId) {
+    ElMessage.warning('请选择课程')
+    return
+  }
+  if (amount <= 0) {
+    ElMessage.warning('收费金额必须大于 0')
+    return
+  }
+
+  recharging.value = true
+  try {
+    const account = await lessonAccountApi.recharge({
+      studentId: rechargeTarget.value.id!,
+      courseId,
+      hours,
+      amount,
+      remark: remark || undefined
+    })
+    ElMessage.success(
+      `${account.studentName} 的「${account.courseName}」已充 ${hours} 课时，剩余 ${account.remainingHours}，单价 ${account.unitPrice}`
+    )
+    rechargeVisible.value = false
+  } finally {
+    recharging.value = false
+  }
+}
 
 // ---- 班级名单 ----
 const classes = ref<{ label: string; value: number }[]>([])
@@ -85,7 +134,11 @@ onMounted(async () => {
 
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane label="学生" name="student">
-        <CrudTable :fields="studentFields" :api="studentApi" />
+        <CrudTable :fields="studentFields" :api="studentApi" :action-width="200">
+          <template #actions="{ row }">
+            <el-button link type="primary" @click="openRecharge(row)">收费开课</el-button>
+          </template>
+        </CrudTable>
       </el-tab-pane>
 
       <el-tab-pane label="班级名单" name="clazz">
@@ -114,5 +167,44 @@ onMounted(async () => {
         />
       </el-tab-pane>
     </el-tabs>
+
+    <el-dialog v-model="rechargeVisible" title="收费开课" width="480px">
+      <p>{{ rechargeTarget.name }}</p>
+      <p>课程要和该学生所在班级上的一致，否则点名时还是扣不动课时。</p>
+
+      <el-form label-width="90px">
+        <el-form-item label="课程" required>
+          <el-select v-model="rechargeForm.courseId" style="width: 100%" placeholder="选一门课">
+            <el-option v-for="c in courseOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="充值课时">
+          <el-input-number
+            v-model="rechargeForm.hours"
+            :min="0.5"
+            :step="0.5"
+            :precision="1"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="收费金额">
+          <el-input-number
+            v-model="rechargeForm.amount"
+            :min="0"
+            :step="100"
+            :precision="2"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="rechargeForm.remark" placeholder="不填就是「收费开课：课程名」" />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="rechargeVisible = false">取消</el-button>
+        <el-button type="primary" :loading="recharging" @click="submitRecharge">确认收费</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

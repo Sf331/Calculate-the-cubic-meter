@@ -92,6 +92,7 @@ public class WorkhourService extends ServiceImpl<WorkhourRecordMapper, WorkhourR
         return toViews(list(query));
     }
 
+    /// 工时明细行。按教师、按月聚合时用。
     public List<WorkhourView> toViews(List<WorkhourRecord> rows) {
         if (rows.isEmpty()) {
             return List.of();
@@ -99,9 +100,11 @@ public class WorkhourService extends ServiceImpl<WorkhourRecordMapper, WorkhourR
 
         Map<Long, Schedule> schedules = byId(scheduleService.listByIds(
                 rows.stream().map(WorkhourRecord::getScheduleId).distinct().toList()), Schedule::getId);
+        //先检验，避免传空id报错
         List<Long> classIds = schedules.values().stream()
                 .map(Schedule::getClassId).filter(Objects::nonNull).distinct().toList();
-        Map<Long, Clazz> classes=classIds.isEmpty()?Map.of()
+        Map<Long, Clazz> classes=classIds.isEmpty()
+                ?Map.of()
                 :byId(clazzService.listByIds(classIds), Clazz::getId);
         List<Long> courseIds = classes.values().stream()
                 .map(Clazz::getCourseId).filter(Objects::nonNull).distinct().toList();

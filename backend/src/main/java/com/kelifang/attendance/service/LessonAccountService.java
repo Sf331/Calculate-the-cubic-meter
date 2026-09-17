@@ -12,9 +12,12 @@ import com.kelifang.basedata.entity.Student;
 import com.kelifang.basedata.service.CourseService;
 import com.kelifang.basedata.service.StudentService;
 import com.kelifang.common.BizException;
+import com.kelifang.common.UserContext;
 import com.kelifang.finance.service.FundService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -148,6 +151,76 @@ public class LessonAccountService extends ServiceImpl<LessonAccountMapper, Lesso
         return accounts.stream().collect(Collectors.toMap(
                 LessonAccount::getId,
                 account -> unitPrice(account, paid.getOrDefault(account.getId(), BigDecimal.ZERO))));
+    }
+
+    /**
+     * 收费开课。没有账户就开一个，有就往上加 —— 演示时"现场招个学生、收完费马上点名"靠这一步。
+     *
+     * 三处同一事务：账户余额、课时流水（RECHARGE）、资金流水（预收 IN）。
+     * 收了钱没加课时或者加了课时没记账，都是演示现场会被问住的那种数据。
+     */
+    @Transactional
+    public LessonAccountView recharge(Long studentId, Long courseId, BigDecimal hours,
+                                      BigDecimal amount, String remark) {
+        requireCanRecharge();
+        if (hours == null || hours.signum() <= 0) {
+            throw BizException.badRequest("充值课时必须大于 0");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            throw BizException.badRequest("收费金额必须大于 0");
+        }
+
+        Student student = studentService.getById(studentId);
+        if (student == null) {
+            throw BizException.notFound("学生不存在");
+        }
+        Course course = courseService.getById(courseId);
+        if (course == null) {
+            throw BizException.notFound("课程不存在");
+        }
+
+        String memo = StringUtils.hasText(remark) ? remark : "收费开课：" + course.getName();
+
+        LessonAccount account = getOne(Wrappers.<LessonAccount>lambdaQuery()
+                .eq(LessonAccount::getStudentId, studentId)
+                .eq(LessonAccount::getCourseId, courseId));
+        if (account == null) {
+            account = new LessonAccount();
+            account.setStudentId(studentId);
+            account.setCourseId(courseId);
+            account.setTotalHours(hours);
+            account.setConsumedHours(BigDecimal.ZERO);
+            account.setRemainingHours(hours);
+            save(account);
+        } else {
+            account.setTotalHours(account.getTotalHours().add(hours));
+            account.setRemainingHours(account.getRemainingHours().add(hours));
+            updateById(account);
+        }
+
+        LessonTransaction tx = new LessonTransaction();
+        tx.setStudentId(studentId);
+        tx.setAccountId(account.getId());
+        tx.setType("RECHARGE");
+        tx.setHours(hours);
+        tx.setBalanceAfter(account.getRemainingHours());
+        tx.setRemark(memo);
+        lessonTransactionMapper.insert(tx);
+
+        fundService.receivePrePayment(studentId, amount, account.getId(), LocalDate.now(), memo);
+
+        return new LessonAccountView(account.getId(), studentId, student.getName(),
+                courseId, course.getName(), account.getTotalHours(), account.getConsumedHours(),
+                account.getRemainingHours(),
+                unitPrice(account, fundService.paidTotal(account.getId())));
+    }
+
+    /** 收费是钱的事，学生家长教师都碰不到，前端藏菜单不算数。 */
+    private void requireCanRecharge() {
+        String role = UserContext.role();
+        if (!"PRINCIPAL".equals(role) && !"ACADEMIC".equals(role)) {
+            throw BizException.forbidden("只有校长和教务能收费开课");
+        }
     }
 
     /**

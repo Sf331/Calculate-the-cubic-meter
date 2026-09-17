@@ -4,7 +4,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { CrudApi, CrudField } from './crud'
 
-const props = defineProps<{ fields: CrudField[]; api: CrudApi }>()
+const props = defineProps<{ fields: CrudField[]; api: CrudApi; actionWidth?: number }>()
 
 const rows = ref<any[]>([])
 const total = ref(0)
@@ -129,8 +129,10 @@ onMounted(async () => {
         <template #default="{ row }">{{ display(field, row) }}</template>
       </el-table-column>
 
-      <el-table-column label="操作" width="140">
+      <el-table-column label="操作" :width="actionWidth ?? 140">
         <template #default="{ row }">
+          <!-- 页面自己加的操作按钮，插在编辑/删除前面 -->
+          <slot name="actions" :row="row" />
           <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
           <el-button link type="primary" @click="remove(row)">删除</el-button>
         </template>
