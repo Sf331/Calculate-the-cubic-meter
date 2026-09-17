@@ -18,7 +18,12 @@ export interface MenuItem {
 }
 
 export const MENUS: MenuItem[] = [
-  { path: '/dashboard', title: '经营看板', roles: ['PRINCIPAL'] },
+  {
+    path: '/dashboard',
+    title: '经营看板',
+    roles: ['PRINCIPAL'],
+    component: () => import('../views/dashboard/index.vue')
+  },
   {
     path: '/schedule',
     title: '排课与课表',
@@ -37,8 +42,18 @@ export const MENUS: MenuItem[] = [
     roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'],
     component: () => import('../views/attendance/index.vue')
   },
-  { path: '/salary', title: '工时薪酬', roles: ['PRINCIPAL', 'TEACHER'] },
-  { path: '/finance', title: '财会报表', roles: ['PRINCIPAL'] },
+  {
+    path: '/salary',
+    title: '工时薪酬',
+    roles: ['PRINCIPAL', 'TEACHER'],
+    component: () => import('../views/salary/index.vue')
+  },
+  {
+    path: '/finance',
+    title: '财会报表',
+    roles: ['PRINCIPAL'],
+    component: () => import('../views/finance/index.vue')
+  },
   {
     path: '/basedata',
     title: '基础数据',

@@ -2,8 +2,11 @@ package com.kelifang.finance.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.kelifang.basedata.entity.Student;
+import com.kelifang.basedata.service.StudentService;
 import com.kelifang.finance.entity.FundTransaction;
 import com.kelifang.finance.mapper.FundTransactionMapper;
+import com.kelifang.finance.vo.FundView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +15,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -23,6 +27,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class FundService extends ServiceImpl<FundTransactionMapper, FundTransaction> {
+
+    private final StudentService studentService;
 
     /** 批量取账户的已收费总额（key 为 lesson_account.id）。报表和账户页都要用。 */
     public Map<Long, BigDecimal> paidTotals(List<Long> accountIds) {
@@ -77,8 +83,11 @@ public class FundService extends ServiceImpl<FundTransactionMapper, FundTransact
         return amount;
     }
 
-    /** 按学生列流水。studentIds 传 null 表示不筛（校长/教务看全部）。 */
-    public List<FundTransaction> listByStudents(List<Long> studentIds) {
+    /**
+     * 查流水。studentIds 传 null 表示不筛（校长/教务看全部），
+     * from/to/type 都可以不传。收支明细和报表都走这一个方法。
+     */
+    public List<FundTransaction> query(List<Long> studentIds, LocalDate from, LocalDate to, String type) {
         var query = Wrappers.<FundTransaction>lambdaQuery()
                 .orderByDesc(FundTransaction::getOccurDate)
                 .orderByDesc(FundTransaction::getId);
@@ -89,6 +98,48 @@ public class FundService extends ServiceImpl<FundTransactionMapper, FundTransact
             }
             query.in(FundTransaction::getStudentId, studentIds);
         }
+        if (from != null) {
+            query.ge(FundTransaction::getOccurDate, from);
+        }
+        if (to != null) {
+            query.le(FundTransaction::getOccurDate, to);
+        }
+        if (type != null) {
+            query.eq(FundTransaction::getType, type);
+        }
         return list(query);
+    }
+
+    /** 收支明细。多带一个学生姓名，报表页不该显示裸 id。 */
+    public List<FundView> views(List<Long> studentIds, LocalDate from, LocalDate to, String type) {
+        List<FundTransaction> rows = query(studentIds, from, to, type);
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, String> names = byNames(rows.stream()
+                .map(FundTransaction::getStudentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList());
+
+        return rows.stream().map(row -> new FundView(
+                row.getId(),
+                row.getStudentId(),
+                names.get(row.getStudentId()),
+                row.getType(),
+                row.getAmount(),
+                row.getDirection(),
+                row.getRefId(),
+                row.getOccurDate(),
+                row.getRemark())).toList();
+    }
+
+    private Map<Long, String> byNames(List<Long> studentIds) {
+        if (studentIds.isEmpty()) {
+            return Map.of();
+        }
+        return studentService.listByIds(studentIds).stream()
+                .collect(Collectors.toMap(Student::getId, Student::getName));
     }
 }

@@ -118,6 +118,20 @@ public class ScheduleService extends ServiceImpl<ScheduleMapper, Schedule> {
     }
 
     /**
+     * 某个日期区间内的课次 id。报表要按"课次日期"归属数据时从这儿进来
+     * —— 签到、收入都该算在课上的那天，不是算在老师点鼠标的那天。
+     */
+    public List<Long> idsBetween(LocalDate from, LocalDate to) {
+        return list(Wrappers.<Schedule>lambdaQuery()
+                .select(Schedule::getId)
+                .ge(Schedule::getLessonDate, from)
+                .le(Schedule::getLessonDate, to))
+                .stream()
+                .map(Schedule::getId)
+                .toList();
+    }
+
+    /**
      * 手动把一节课挪到新时段。
      *
      * 复用排课引擎的 ConstraintValidator，不另写一套规则 —— 否则"自动排出来的课合法、

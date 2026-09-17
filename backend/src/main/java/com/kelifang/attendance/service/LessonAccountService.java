@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -111,6 +112,20 @@ public class LessonAccountService extends ServiceImpl<LessonAccountMapper, Lesso
         return lessonTransactionMapper.selectList(Wrappers.<LessonTransaction>lambdaQuery()
                 .eq(LessonTransaction::getAccountId, accountId)
                 .orderByDesc(LessonTransaction::getId));
+    }
+
+    /**
+     * 某个时间段内全部课时流水。课时结转表用。
+     *
+     * 按 created_at 归月，因为 lesson_transaction 上只有这一个时间列。
+     * demo 里点名发生在课次当天，和按课次日期归月是一回事。
+     */
+    public List<LessonTransaction> transactionsBetween(LocalDate from, LocalDate to) {
+        return lessonTransactionMapper.selectList(Wrappers.<LessonTransaction>lambdaQuery()
+                .ge(LessonTransaction::getCreatedAt, from.atStartOfDay())
+                .le(LessonTransaction::getCreatedAt, to.plusDays(1).atStartOfDay())
+                .orderByAsc(LessonTransaction::getCreatedAt)
+                .orderByAsc(LessonTransaction::getId));
     }
 
     /**

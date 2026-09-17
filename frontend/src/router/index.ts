@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import AppLayout from '../layouts/AppLayout.vue'
 import Placeholder from '../views/Placeholder.vue'
-import { MENUS } from './menus'
+import { MENUS, menusFor } from './menus'
 import { useUserStore } from '../stores/user'
 
 const routes: RouteRecordRaw[] = [
@@ -36,6 +36,13 @@ router.beforeEach(async (to) => {
   }
   if (!userStore.user) {
     return { path: '/login' }
+  }
+
+  // 默认落点是经营看板，但那是校长专属。别的角色进来会被后端 403，
+  // 所以在这里换到他菜单里的第一项。
+  const menus = menusFor(userStore.role())
+  if (to.path === '/dashboard' && !menus.some((m) => m.path === '/dashboard')) {
+    return menus.length ? { path: menus[0].path } : false
   }
   return true
 })

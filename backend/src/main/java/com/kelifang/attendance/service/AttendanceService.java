@@ -209,6 +209,26 @@ public class AttendanceService extends ServiceImpl<AttendanceMapper, Attendance>
         return new ConsumeResult(scheduleId, items.size(), consumedHours, confirmedAmount, workhourAmount);
     }
 
+    /** 按 id 批量取签到。报表从 fund_transaction.ref_id 反查进来。 */
+    public List<Attendance> byIds(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return listByIds(ids);
+    }
+
+    /**
+     * 某个日期区间内的签到。按**课次日期**归属，不是按老师点鼠标的那天 ——
+     * 所以要先拿课次 id 再筛，不能直接用 attendance.sign_time。
+     */
+    public List<Attendance> between(LocalDate from, LocalDate to) {
+        List<Long> scheduleIds = scheduleService.idsBetween(from, to);
+        if (scheduleIds.isEmpty()) {
+            return List.of();
+        }
+        return list(Wrappers.<Attendance>lambdaQuery().in(Attendance::getScheduleId, scheduleIds));
+    }
+
     private boolean alreadySigned(Long scheduleId, Long studentId) {
         return count(Wrappers.<Attendance>lambdaQuery()
                 .eq(Attendance::getScheduleId, scheduleId)
