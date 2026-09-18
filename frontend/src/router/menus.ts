@@ -66,10 +66,15 @@ export const MENUS: MenuItem[] = [
     roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'],
     component: () => import('../views/content/index.vue')
   },
-  { path: '/courseware', title: '交互课件', roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'] },
-  { path: '/homework', title: '电子作业', roles: [] },
-  { path: '/wrong-book', title: '错题本', roles: ['STUDENT'] },
-  { path: '/report', title: '学情报告', roles: ['PRINCIPAL', 'STUDENT', 'PARENT'] },
+  {
+    path: '/courseware',
+    title: '交互课件',
+    roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER', 'STUDENT'],
+    component: () => import('../views/courseware/index.vue')
+  },
+  { path: '/homework', title: '电子作业', roles: [], component: () => import('../views/homework/index.vue') },
+  { path: '/wrong-book', title: '错题本', roles: ['STUDENT'], component: () => import('../views/wrong-book/index.vue') },
+  { path: '/report', title: '学情报告', roles: ['PRINCIPAL', 'STUDENT', 'PARENT'], component: () => import('../views/report/index.vue') },
   {
     path: '/lesson-account',
     title: '课时账户',

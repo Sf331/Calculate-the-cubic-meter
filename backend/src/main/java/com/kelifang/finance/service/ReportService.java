@@ -195,9 +195,14 @@ public class ReportService {
 
         Map<Long, BigDecimal> costByClass = new LinkedHashMap<>();
         List<WorkhourRecord> workhours = workhourService.between(from, to);
-        Map<Long, Schedule> scheduleById = scheduleService.listByIds(
-                        workhours.stream().map(WorkhourRecord::getScheduleId).distinct().toList()).stream()
-                .collect(Collectors.toMap(Schedule::getId, Function.identity()));
+        List<Long> scheduleIds=workhours.stream()
+                .map(WorkhourRecord::getScheduleId)
+                .distinct()
+                .toList();
+        Map<Long, Schedule> scheduleById =scheduleIds.isEmpty()
+                ? Map.of()
+                : scheduleService.listByIds(scheduleIds).stream()
+                .collect(Collectors.toMap(Schedule::getId,Function.identity()));
         for (WorkhourRecord row : workhours) {
             Schedule schedule = scheduleById.get(row.getScheduleId());
             if (schedule == null) {
@@ -243,9 +248,14 @@ public class ReportService {
 
         Map<Long, Long> scheduleIdByAttendance = attendanceService.byIds(attendanceIds).stream()
                 .collect(Collectors.toMap(Attendance::getId, Attendance::getScheduleId));
-        Map<Long, Schedule> schedules = scheduleService.listByIds(
-                        scheduleIdByAttendance.values().stream().distinct().toList()).stream()
-                .collect(Collectors.toMap(Schedule::getId, Function.identity()));
+        List<Long> scheduleIds=scheduleIdByAttendance.values().stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, Schedule> schedules = scheduleIds.isEmpty()
+                ? Map.of()
+                : scheduleService.listByIds(scheduleIds).stream()
+                .collect(Collectors.toMap(Schedule::getId,Function.identity()));
 
         Map<Long, BigDecimal> byClass = new LinkedHashMap<>();
         for (FundTransaction confirm : confirms) {
