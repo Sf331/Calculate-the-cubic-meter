@@ -41,9 +41,9 @@
 │       │   ├── attendance/             签到、课时核销、课时账户、流水
 │       │   ├── salary/                 工时明细、工资单
 │       │   ├── finance/                资金流水、5 张报表、经营看板
-│       │   ├── content/                内容资产                    ⬜ 未实现
-│       │   ├── courseware/             交互式课件与互动结果          ⬜ 未实现
-│       │   └── homework/               作业、错题本、学情            ⬜ 未实现
+│       │   ├── content/                内容资产                    
+│       │   ├── courseware/             交互式课件与互动结果          
+│       │   └── homework/               作业、错题本、学情            
 │       └── resources/
 │           ├── application.yml
 │           ├── schema.sql              28 张表
