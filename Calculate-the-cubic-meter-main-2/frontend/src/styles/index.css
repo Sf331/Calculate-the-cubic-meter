@@ -1,0 +1,818 @@
+/* ============================================================================
+   课立方 · 全局样式
+
+   风格：**简洁专业 · 双色**。
+   整个界面只有两支颜色：一支墨承担全部文字和线条，一支蓝承担主操作和选中态。
+   其余全是中性灰。没有渐变、没有装饰性阴影、没有第二支蓝。
+
+   配色（2026-09-17 第三次校正）：
+   **色值直接取参考件 stylekit.top/zh/styles/data-dense**，不再自己推：
+   Accent 1 #3b82f6 / Accent 2 #ef4444 / Accent 3 #22c55e / 背景辅色 #f8fafc /
+   正文主色 #1e293b / 正文辅色 #64748b / 正文弱化色 #94a3b8 / 分隔线 #e2e8f0。
+
+   前两次的教训记在这里：一度把"AI 味"归因到色值上（说 #3b82f6 是 Tailwind 默认值所以显模板），
+   把主色改成了 #1d4ed8。**那个归因是错的** —— 参考件用的就是 #3b82f6，观感一点不 AI。
+   显 AI 味的是处理手法：卡片套卡片、表头填灰底、留白失控。色相不是问题。
+   所以现在色值照抄参考件，**不要再自己"改良"色相**。
+
+   ⚠️ 有一处已知偏离：参考件的 #3b82f6 压白字只有 3.68:1，主按钮上过不了 WCAG AA。
+   用户明确要求用参考件的颜色，所以保留原值；要改回去只需把 --color-primary 换成 #2563eb。
+
+   **没有深色模式**：参考件是纯浅色设计，用户明确要求跟着它走，所以不做深色适配。
+
+   三条硬约束：
+     - 间距封顶 20px，token 里根本没有 24 / 32 这两档。
+     - 圆角封顶 6px，没有 --radius-xl。
+     - 阴影只有一档，只给真正浮起来的层；卡片和导航一律 1px 细线。
+
+   三层：
+     1. token 块
+     2. Element Plus 的 --el-* 映射到 token —— 改主题只改 token，组件自动跟着走
+     3. 基础重置 + .k-* 页面工具类
+
+   硬规则：页面只引用 token，不写死色值和字号。页面里不要写 @media (prefers-color-scheme)。
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- 双色系统 ----------
+     第一支是墨：所有文字、线条、图标的浓淡都由它派生（--label-* / --separator）。
+     第二支是蓝：参考件的 Accent 1 #3b82f6，全站唯一的有彩色。 */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb; /* 参考件没规定 hover，取同色相深一档 */
+
+  /* 主色有"面"和"字"两种用法，拆成三个 token。
+     （拆分的起因是深色模式 —— 那里"面"要亮、"面上的字"要转深墨，最优解相反。
+     深色模式已按用户要求删掉，三个 token 现在取值相同，但保留：
+     页面里已经按语义在引用，合并回去只会让以后想调其中一处时无从下手。） */
+  --color-primary-text: #3b82f6;
+  --color-primary-text-hover: #2563eb;
+  --color-primary-on: #ffffff;
+
+  /* 语义色是第三条轴，只用于数据状态编码，不参与"双色"。
+     success / danger 直接取参考件的 Accent 3 / Accent 2；warning 参考件没有，取同档的琥珀。
+     **当"面"用**（按钮底、图标），所以是 500 号。
+     当"字"用要更深一档，见下面的 --color-*-text —— 参考件自己的规范也是这么分的
+     （状态标签写的是 `bg-blue-50 text-blue-700`，底 50 号、字 700 号）。 */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  /* 提示色直接指向主色。更早的一版这里写死过另一支蓝，跟主色同屏出现就显脏 ——
+     双色系统里不能有第二支蓝。 */
+  --color-info: var(--color-primary);
+
+  /* "语义色当字用"的那一档，取参考件规范里的 700 号（它写的是 `text-red-700` 这种）。
+     直接拿上面的 500 号当字用会不达标：#ef4444 压白底只有 3.76:1、
+     压在 #fef2f2 标签底上只有 4.41:1，都差一点。 */
+  --color-success-text: #15803d;
+  --color-warning-text: #b45309;
+  --color-danger-text: #b91c1c; /* 白底 6.47:1、标签底 5.91:1 */
+
+  /* ---------- 文本：全部由墨色派生 ---------- */
+  --label-primary: #1e293b; /* 参考件「正文主色」 */
+  --label-secondary: #64748b; /* 参考件「正文辅色」，对白底 4.76:1，过 AA */
+  /* 参考件「正文弱化色」。只给占位符 / 禁用 / 装饰，
+     对白底只有 2.6:1，达不到 AA，别拿来写正文 */
+  --label-tertiary: #94a3b8;
+  --label-inverse: #ffffff;
+
+  /* ---------- 背景与分隔 ---------- */
+  --bg-canvas: #f8fafc; /* 参考件「背景辅色」，页面底 */
+  --bg-card: #ffffff; /* 卡片 / 表格 / 输入框 */
+  --bg-subtle: #f1f5f9; /* 分段轨道、头像底、禁用底。表头不用它 —— 见 --el-table-header-bg-color */
+  --bg-row-alt: #f8fafc; /* 表格斑马行。比 hover 浅一档，否则悬停看不出来 */
+  --bg-hover: #f1f5f9;
+  --bg-segment: #ffffff; /* 分段控件的滑块，要比轨道亮 */
+  --separator: #e2e8f0; /* 参考件「分隔线」 */
+  --separator-strong: #cbd5e1;
+
+  --tint-primary: #eff6ff; /* 蓝的 50 号底，给表格选中行 */
+  --tint-danger: #fef2f2;
+  --mask: rgba(15, 23, 42, 0.45);
+
+  /* ---------- 状态标签：颜色编码 ----------
+     绿=正常 黄=待处理 红=异常 蓝=提示 灰=普通分类。
+     只有承担业务含义的值才上色，纯分类（比如"计薪方式"）用灰。
+     底色一律 50 号（极浅）、文字走上面那组 --color-*-text（700 号），
+     跟参考件规范 `bg-blue-50 text-blue-700` 是同一个分法，保证 4.5:1 以上。 */
+  --tag-info-bg: #eff6ff;
+  --tag-info-fg: #1d4ed8;
+  --tag-success-bg: #f0fdf4;
+  --tag-success-fg: var(--color-success-text);
+  --tag-warning-bg: #fffbeb;
+  --tag-warning-fg: var(--color-warning-text);
+  --tag-danger-bg: #fef2f2;
+  --tag-danger-fg: var(--color-danger-text);
+  --tag-neutral-bg: #f1f5f9;
+  --tag-neutral-fg: #475569;
+
+  /* color-mix 的两个端点：Element Plus 的 light-N / dark-N 色阶靠它们推导 */
+  --mix-toward: #ffffff;
+  --mix-dark: #0f172a;
+
+  /* ---------- 字体 ---------- */
+  --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  /* ---------- 字号阶 ----------
+     **被用户打回过三次**，别再往回缩，也别再一档一档地试：
+       10/12/14  →「字太小了」
+       12/13/15  →「字也太小太小了」
+       13/14/16  →「字还是太小太小，放大」
+     16px（浏览器默认值）对这个用户仍然偏小 —— 他多半是在大屏上投屏看的。
+     所以正文直接给到 18px，**明显大于 Web 常规**，这是有意为之，不是没调好。
+
+     参考件的规范写的是 text-xs / text-sm（12 / 14px），对中文投屏太激进，**有意偏离**。
+     数据密集指的是"单位面积里放多少信息"，不是"把字缩到多小"。 */
+  --text-2xs: 15px; /* 表头、状态标签、角标 —— 全站最小，不再往下走 */
+  --text-xs: 16px; /* 按钮、菜单、次要说明 */
+  --text-sm: 18px; /* 正文、表格、表单 */
+  --text-md: 22px; /* 区块标题、弹窗标题 */
+  --text-lg: 26px; /* 页面标题 */
+  --text-xl: 32px; /* KPI 大数字，一屏只有几个 */
+
+  /* ---------- 间距：4px 递增，封顶 20px ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+
+  /* ---------- 圆角 ---------- */
+  --radius-sm: 2px; /* 状态标签 */
+  --radius-md: 4px; /* 默认：按钮、输入框、卡片、分段控件 */
+  --radius-lg: 6px; /* 浮层：弹窗、底部弹层 */
+  /* 只给头像、抓手这种本来就是圆的元素 —— 胶囊按钮和胶囊标签都不许用 */
+  --radius-full: 9999px;
+
+  /* ---------- 阴影：只有一档，只给浮层。卡片一律 1px 细线 ---------- */
+  --shadow-pop: 0 1px 2px rgba(15, 23, 42, 0.06);
+
+  /* ---------- 动效：只过渡颜色，不做位移和弹跳 ---------- */
+  --ease-out: cubic-bezier(0, 0, 0.58, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+
+  /* ---------- 尺寸 ---------- */
+  --control-h: 40px; /* 按钮 / 输入框的默认高度。字号到 18px 后 36px 会挤 */
+  --control-h-sm: 34px; /* 表格行内的小按钮、分页 */
+  --control-h-lg: 46px;
+  --touch-min: 48px; /* 触屏下的可点最小尺寸 */
+  --tabbar-height: 62px;
+  --navbar-height: 54px;
+  --sidebar-width: 220px;
+  --header-height: 54px;
+}
+
+/* 触屏（手机 / 平板）把控件再抬一档到 --touch-min 以上。桌面用鼠标不需要这么大的目标，
+   一律照搬会把界面撑稀。具体数值见上面「尺寸」一节，这里不写死数字免得注释先过期。 */
+@media (max-width: 820px), (pointer: coarse) {
+  :root {
+    --control-h: 50px;
+    --control-h-sm: 42px;
+    --control-h-lg: 50px;
+  }
+}
+
+/* 深色模式已移除（2026-09-17，用户要求）。
+   参考件 stylekit.top/zh/styles/data-dense 是纯浅色设计，没有深色版，跟着它走就不做深色。
+   原先这里有一整个 @media (prefers-color-scheme: dark) 的 token 换挡块 —— 删掉它
+   只动了这一处，页面和布局一行都没改，因为颜色全部经由 token 取值。
+   **不要再加回来**：真要加，得连参考件的色阶一起重新推一遍，不是补个色值就行。 */
+
+/* ============================================================================
+   Element Plus 变量映射
+   --el-* 全部指向 token，改主题只改上面的 token，组件自动跟着走 ——
+   自定义属性在使用时才求值，所以这里不需要抄第二遍色值。
+   ========================================================================== */
+
+:root {
+  --el-font-family: var(--font-system);
+  --el-font-size-base: var(--text-sm);
+  --el-font-size-small: var(--text-xs);
+  --el-font-size-extra-small: var(--text-2xs);
+  --el-font-size-medium: var(--text-sm);
+  --el-font-size-large: var(--text-md);
+
+  --el-component-size: var(--control-h);
+  --el-component-size-small: var(--control-h-sm);
+  --el-component-size-large: var(--control-h-lg);
+
+  --el-border-radius-base: var(--radius-md);
+  --el-border-radius-small: var(--radius-sm);
+  /* 覆盖掉，别让 .is-round / .is-circle 把按钮变胶囊 */
+  --el-border-radius-round: var(--radius-md);
+  --el-border-width: 1px;
+
+  --el-color-primary: var(--color-primary);
+  --el-color-success: var(--color-success);
+  --el-color-warning: var(--color-warning);
+  --el-color-danger: var(--color-danger);
+  --el-color-error: var(--color-danger);
+  --el-color-info: var(--color-info);
+
+  /* 色阶统一从主色推导，避免出现两套蓝 */
+  --el-color-primary-light-3: color-mix(in srgb, var(--color-primary) 70%, var(--mix-toward));
+  --el-color-primary-light-5: color-mix(in srgb, var(--color-primary) 50%, var(--mix-toward));
+  --el-color-primary-light-7: color-mix(in srgb, var(--color-primary) 30%, var(--mix-toward));
+  --el-color-primary-light-8: color-mix(in srgb, var(--color-primary) 20%, var(--mix-toward));
+  --el-color-primary-light-9: color-mix(in srgb, var(--color-primary) 10%, var(--mix-toward));
+  --el-color-primary-dark-2: color-mix(in srgb, var(--color-primary) 80%, var(--mix-dark));
+
+  --el-color-success-light-3: color-mix(in srgb, var(--color-success) 70%, var(--mix-toward));
+  --el-color-success-light-5: color-mix(in srgb, var(--color-success) 50%, var(--mix-toward));
+  --el-color-success-light-7: color-mix(in srgb, var(--color-success) 30%, var(--mix-toward));
+  --el-color-success-light-8: color-mix(in srgb, var(--color-success) 20%, var(--mix-toward));
+  --el-color-success-light-9: color-mix(in srgb, var(--color-success) 10%, var(--mix-toward));
+  --el-color-success-dark-2: color-mix(in srgb, var(--color-success) 80%, var(--mix-dark));
+
+  --el-color-warning-light-3: color-mix(in srgb, var(--color-warning) 70%, var(--mix-toward));
+  --el-color-warning-light-5: color-mix(in srgb, var(--color-warning) 50%, var(--mix-toward));
+  --el-color-warning-light-7: color-mix(in srgb, var(--color-warning) 30%, var(--mix-toward));
+  --el-color-warning-light-8: color-mix(in srgb, var(--color-warning) 20%, var(--mix-toward));
+  --el-color-warning-light-9: color-mix(in srgb, var(--color-warning) 10%, var(--mix-toward));
+  --el-color-warning-dark-2: color-mix(in srgb, var(--color-warning) 80%, var(--mix-dark));
+
+  --el-color-danger-light-3: color-mix(in srgb, var(--color-danger) 70%, var(--mix-toward));
+  --el-color-danger-light-5: color-mix(in srgb, var(--color-danger) 50%, var(--mix-toward));
+  --el-color-danger-light-7: color-mix(in srgb, var(--color-danger) 30%, var(--mix-toward));
+  --el-color-danger-light-8: color-mix(in srgb, var(--color-danger) 20%, var(--mix-toward));
+  --el-color-danger-light-9: color-mix(in srgb, var(--color-danger) 10%, var(--mix-toward));
+  --el-color-danger-dark-2: color-mix(in srgb, var(--color-danger) 80%, var(--mix-dark));
+
+  --el-color-error-light-3: var(--el-color-danger-light-3);
+  --el-color-error-light-5: var(--el-color-danger-light-5);
+  --el-color-error-light-7: var(--el-color-danger-light-7);
+  --el-color-error-light-8: var(--el-color-danger-light-8);
+  --el-color-error-light-9: var(--el-color-danger-light-9);
+  --el-color-error-dark-2: var(--el-color-danger-dark-2);
+
+  --el-color-info-light-3: color-mix(in srgb, var(--color-info) 70%, var(--mix-toward));
+  --el-color-info-light-5: color-mix(in srgb, var(--color-info) 50%, var(--mix-toward));
+  --el-color-info-light-7: color-mix(in srgb, var(--color-info) 30%, var(--mix-toward));
+  --el-color-info-light-8: color-mix(in srgb, var(--color-info) 20%, var(--mix-toward));
+  --el-color-info-light-9: color-mix(in srgb, var(--color-info) 10%, var(--mix-toward));
+  --el-color-info-dark-2: color-mix(in srgb, var(--color-info) 80%, var(--mix-dark));
+
+  --el-text-color-primary: var(--label-primary);
+  --el-text-color-regular: var(--label-primary);
+  --el-text-color-secondary: var(--label-secondary);
+  --el-text-color-placeholder: var(--label-tertiary);
+  --el-text-color-disabled: var(--label-tertiary);
+  --el-text-color-inverse: var(--label-inverse);
+
+  --el-border-color: var(--separator);
+  --el-border-color-light: var(--separator);
+  --el-border-color-lighter: var(--separator);
+  --el-border-color-extra-light: var(--separator);
+  --el-border-color-dark: var(--separator-strong);
+  --el-border-color-darker: var(--separator-strong);
+
+  --el-fill-color: var(--bg-subtle);
+  --el-fill-color-light: var(--bg-subtle);
+  /* 斑马行读的是这一档 */
+  --el-fill-color-lighter: var(--bg-row-alt);
+  --el-fill-color-extra-light: var(--bg-row-alt);
+  --el-fill-color-dark: var(--bg-hover);
+  --el-fill-color-darker: var(--bg-hover);
+  --el-fill-color-blank: var(--bg-card);
+
+  --el-bg-color: var(--bg-card);
+  --el-bg-color-page: var(--bg-canvas);
+  --el-bg-color-overlay: var(--bg-card);
+
+  --el-disabled-bg-color: var(--bg-subtle);
+  --el-disabled-text-color: var(--label-tertiary);
+  --el-disabled-border-color: var(--separator);
+
+  --el-mask-color: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  --el-mask-color-extra-light: color-mix(in srgb, var(--bg-card) 30%, transparent);
+  --el-overlay-color-lighter: var(--mask);
+
+  --el-box-shadow: var(--shadow-pop);
+  --el-box-shadow-light: var(--shadow-pop);
+  --el-box-shadow-lighter: var(--shadow-pop);
+  --el-box-shadow-dark: var(--shadow-pop);
+
+  --el-dialog-padding-primary: var(--space-4);
+  --el-dialog-border-radius: var(--radius-lg);
+  --el-messagebox-border-radius: var(--radius-lg);
+  --el-message-border-radius: var(--radius-md);
+  --el-popover-border-radius: var(--radius-md);
+
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  /* 表头**不填灰底**。填灰底是"模板感"最大的来源之一 —— 参考站的表头是白底，
+     只靠一条细线和字号/颜色差跟数据行分开。 */
+  --el-table-header-bg-color: transparent;
+  --el-table-header-text-color: var(--label-secondary);
+  --el-table-text-color: var(--label-primary);
+  --el-table-border-color: var(--separator);
+  --el-table-row-hover-bg-color: var(--bg-hover);
+  --el-table-current-row-bg-color: var(--tint-primary);
+
+  --el-pagination-button-width: 32px;
+  --el-pagination-button-height: 32px;
+  --el-pagination-font-size: var(--text-xs);
+}
+
+/* ============================================================================
+   基础重置
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-system);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--label-primary);
+  background: var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+/* 滚动条收窄，不做视觉装饰 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--separator-strong);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--label-tertiary);
+}
+
+/* ============================================================================
+   页面级工具类
+   业务页面用这些拼版式，不要自己写边距和卡片样式。
+   ========================================================================== */
+
+.k-page {
+  padding: var(--space-4);
+}
+
+.k-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.k-page__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--label-primary);
+}
+
+.k-page__desc {
+  font-size: var(--text-xs);
+  color: var(--label-secondary);
+  margin-top: var(--space-1);
+}
+
+/* 卡片：1px 细线，不投影 */
+.k-card {
+  background: var(--bg-card);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.k-card + .k-card {
+  margin-top: var(--space-3);
+}
+
+.k-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.k-toolbar + .k-toolbar {
+  margin-top: var(--space-2);
+}
+
+.k-spacer {
+  flex: 1 1 auto;
+}
+
+.k-muted {
+  color: var(--label-secondary);
+  font-size: var(--text-xs);
+}
+
+/* 数字、编号、时间一律等宽 —— 列对不齐的表格没法定点扫描 */
+.k-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 状态标签：颜色编码。只有承担业务含义的值才用它，纯分类用中性灰。
+   字号取全站最小的那一档（13px）—— 比按钮小一号，标签才不会跟操作抢注意力。 */
+.k-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.k-tag + .k-tag {
+  margin-left: var(--space-1);
+}
+
+.k-tag--info {
+  background: var(--tag-info-bg);
+  color: var(--tag-info-fg);
+}
+
+.k-tag--success {
+  background: var(--tag-success-bg);
+  color: var(--tag-success-fg);
+}
+
+.k-tag--warning {
+  background: var(--tag-warning-bg);
+  color: var(--tag-warning-fg);
+}
+
+.k-tag--danger {
+  background: var(--tag-danger-bg);
+  color: var(--tag-danger-fg);
+}
+
+.k-tag--neutral {
+  background: var(--tag-neutral-bg);
+  color: var(--tag-neutral-fg);
+}
+
+/* 空态：一句说明 + 一个动作，不放插画 */
+.k-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+}
+
+.k-empty__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--label-primary);
+}
+
+.k-empty__text {
+  font-size: var(--text-xs);
+  color: var(--label-secondary);
+  max-width: 42ch;
+}
+
+/* ============================================================================
+   Element Plus 外观微调
+   颜色 / 圆角 / 尺寸已由变量映射接管，这里只补变量够不到的地方。
+   ========================================================================== */
+
+.el-button {
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+/* 按下时轻微收缩。只做 transform，不带动画曲线，不会晃 */
+.el-button:active:not(.is-disabled) {
+  transform: scale(0.97);
+}
+
+/* 禁用态统一压成灰底灰字。
+   Element Plus 默认给主按钮套一层 primary-light-5 + 白字，对比度只有 2:1 左右，
+   既读不清又看着像能点。这些变量它定义在 .el-button--primary 这一层，
+   写在 :root 上会被盖掉，所以要用同样的权重在后面覆盖一次。
+   注意 :is() 取的是参数里最高的权重，加上 .el-button 正好压过 .el-button--primary.is-plain。 */
+.el-button:is(
+    .el-button--primary, .el-button--success, .el-button--warning,
+    .el-button--danger, .el-button--error, .el-button--info
+  ) {
+  --el-button-disabled-bg-color: var(--bg-subtle);
+  --el-button-disabled-border-color: var(--separator);
+  --el-button-disabled-text-color: var(--label-secondary);
+}
+
+/* 主按钮上的文字色。
+   Element Plus 写死了 --el-button-text-color: var(--el-color-white)，而且是在
+   .el-button--primary 这一层声明的 —— 写 :root 上会被盖掉，跟禁用态是同一个坑。
+   这里改成走 --color-primary-on 这个 token，别写死白色。
+
+   注意要排除 is-link / is-text：那两个变体的 color 读的就是这个变量，
+   不改的话「编辑」会变成白字，在白底上看不见。 */
+.el-button--primary:not(.is-link):not(.is-text) {
+  --el-button-text-color: var(--color-primary-on);
+  --el-button-hover-text-color: var(--color-primary-on);
+  --el-button-active-text-color: var(--color-primary-on);
+}
+
+/* link / text 变体是"主色当字用"，走 --color-primary-text 那一支 */
+.el-button--primary {
+  --el-button-hover-link-text-color: var(--color-primary-text-hover);
+}
+
+.el-button.is-link.el-button--primary:not(.is-disabled),
+.el-button.is-text.el-button--primary:not(.is-disabled) {
+  color: var(--color-primary-text);
+}
+
+.el-button.is-link.el-button--primary:not(.is-disabled):hover,
+.el-button.is-text.el-button--primary:not(.is-disabled):hover {
+  color: var(--color-primary-text-hover);
+}
+
+/* 红色同理，而且更要紧：#ef4444 是"面"那一档，直接当红字写只有 3.81:1，过不了 AA。
+   表格里的「删除」就是 link 变体，必须走 --color-danger-text(#dc2626)。 */
+.el-button.is-link.el-button--danger:not(.is-disabled),
+.el-button.is-text.el-button--danger:not(.is-disabled) {
+  color: var(--color-danger-text);
+}
+
+.el-button.is-link.el-button--danger:not(.is-disabled):hover,
+.el-button.is-text.el-button--danger:not(.is-disabled):hover {
+  color: var(--color-danger-text);
+  opacity: 0.82;
+}
+
+/* 主按钮 hover 转深，不用 Element Plus 默认的变浅 */
+.el-button--primary:not(.is-disabled):hover,
+.el-button--primary:not(.is-disabled):focus {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* 次级按钮：中性描边，不用主色底。
+   主色只留给主操作，否则一个工具栏里全是蓝色块，重点就没了。
+
+   Element Plus 不给没写 type 的按钮加 --default 类，只能反着排除。
+   排除串包在 :where() 里 —— 它本身不计权重，否则这一长串 :not() 会把
+   Element Plus 自己的 hover / focus 规则全压掉。 */
+.el-button:where(
+    :not(.el-button--primary, .el-button--success, .el-button--warning,
+      .el-button--danger, .el-button--error, .el-button--info,
+      .is-link, .is-text, .is-disabled, .is-circle, .is-plain)
+  ) {
+  background: var(--bg-card);
+  border-color: var(--separator);
+  color: var(--label-primary);
+}
+
+.el-button:where(
+    :not(.el-button--primary, .el-button--success, .el-button--warning,
+      .el-button--danger, .el-button--error, .el-button--info,
+      .is-link, .is-text, .is-disabled, .is-circle, .is-plain)
+  ):hover {
+  background: var(--bg-hover);
+  border-color: var(--separator-strong);
+  color: var(--label-primary);
+}
+
+/* 破坏性操作：平时只是红字，hover 才浮出红底。
+   工具栏里常驻一块红色会跟主操作抢注意力。 */
+.el-button.btn-destructive:not(.is-link):not(.is-text) {
+  background: var(--bg-card);
+  border-color: var(--separator);
+  color: var(--color-danger-text);
+}
+
+.el-button.btn-destructive:not(.is-link):not(.is-text):hover {
+  background: var(--tint-danger);
+  border-color: var(--color-danger);
+  color: var(--color-danger-text);
+}
+
+/* 输入类控件：白底 + 1px 描边，聚焦时描边转主色（一根环，不加外发光） */
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--separator) inset;
+  transition: box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--separator-strong) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--color-primary) inset;
+}
+
+.el-form-item__label {
+  color: var(--label-secondary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.5;
+  margin-bottom: 2px;
+}
+
+.el-form-item {
+  margin-bottom: var(--space-3);
+}
+
+/* ---------- 表格：紧凑行高 + 斑马行 + 小号表头 ---------- */
+.el-table {
+  font-size: var(--text-sm);
+}
+
+.el-table th.el-table__cell {
+  /* 表头用小字 + 字距拉开。中文没有大小写，plan.md 里的 uppercase 对中文是空操作，
+     只保留它的意图：小、灰、疏，跟数据行拉开层次 */
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--label-secondary);
+  background: var(--bg-card);
+  padding: var(--space-3) 0;
+}
+
+/* 表头下沿那条线要比行分隔线重一档，否则白底表头跟第一行糊在一起 */
+.el-table th.el-table__cell {
+  border-bottom-color: var(--separator-strong) !important;
+}
+
+.el-table td.el-table__cell {
+  padding: var(--space-3) 0;
+}
+
+.el-table__inner-wrapper::before {
+  display: none;
+}
+
+.el-table .cell {
+  padding: 0 var(--space-3);
+  line-height: 1.5;
+}
+
+/* 表格卡片：**横向不留内边距**，让表格通栏铺到卡片边。
+   表格自己每格有 12px 内边距，再套一层卡片内边距就成了"表格浮在卡片里"，
+   斑马行也断在中间 —— 通栏之后行分隔线一直拉到卡片边，观感干净得多。
+   操作条自己补回横向内边距。 */
+.k-card--table {
+  padding: var(--space-3) 0 var(--space-2);
+  overflow: hidden;
+}
+
+.k-card--table .k-toolbar {
+  padding: 0 var(--space-3);
+}
+
+/* 分段控件（视角切换）：内嵌槽 + 白色滑块 */
+.el-radio-group {
+  background: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.el-radio-group .el-radio-button__inner {
+  border: none;
+  background: transparent;
+  color: var(--label-secondary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  box-shadow: none !important;
+  padding: 0 var(--space-2);
+  height: calc(var(--control-h) - 4px);
+  line-height: calc(var(--control-h) - 4px);
+}
+
+/* 选中态做成"浮起来的白片"，而不是实心主色块。
+   选择器要带上 .is-active 才压得过 Element Plus 自带的
+   `.el-radio-button.is-active .el-radio-button__original-radio:not(:disabled)+...`。 */
+.el-radio-button.is-active .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background: var(--bg-segment);
+  border-radius: var(--radius-sm) !important;
+  box-shadow: 0 0 0 1px var(--separator) !important;
+  color: var(--label-primary);
+  font-weight: 500;
+}
+
+/* 标签页 */
+.el-tabs__item {
+  font-size: var(--text-sm);
+  height: var(--control-h-lg);
+  line-height: var(--control-h-lg);
+  color: var(--label-secondary);
+}
+
+.el-tabs__item.is-active {
+  font-weight: 500;
+  color: var(--color-primary-text);
+}
+
+.el-tabs__nav-wrap::after {
+  background-color: var(--separator);
+  height: 1px;
+}
+
+.el-tabs__active-bar {
+  height: 2px;
+}
+
+/* 浮层：阴影只有它们有，而且是 shadow-sm 那一档 */
+.el-dialog,
+.el-message-box,
+.el-popper,
+.el-select__popper,
+.el-picker__popper {
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-pop);
+}
+
+.el-dialog__header {
+  margin-right: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--separator);
+}
+
+.el-dialog__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--label-primary);
+}
+
+.el-dialog__body {
+  padding-top: var(--space-3);
+}
+
+.el-dialog__footer {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--separator);
+}
+
+.el-overlay {
+  background-color: var(--mask);
+}
+
+.el-message-box__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.el-message {
+  border-radius: var(--radius-md);
+}
+
+.el-pagination {
+  justify-content: flex-end;
+  font-size: var(--text-xs);
+}
+
+/* 减弱动效 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
