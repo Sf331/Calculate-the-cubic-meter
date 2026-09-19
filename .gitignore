@@ -11,3 +11,4 @@ data/
 *.iml
 
 /.claude/settings.json
+.DS_Store
