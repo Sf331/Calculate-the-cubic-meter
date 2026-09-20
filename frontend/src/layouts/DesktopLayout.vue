@@ -30,7 +30,6 @@ async function onLogout() {
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand__mark" aria-hidden="true">课</div>
         <div class="brand__text">
           <div class="brand__name">课立方</div>
           <div class="brand__sub">机构运营台</div>
@@ -96,19 +95,6 @@ async function onLogout() {
   flex: none;
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--separator);
-}
-
-.brand__mark {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: var(--label-inverse);
-  display: grid;
-  place-items: center;
-  font-size: var(--text-2xs);
-  font-weight: 600;
 }
 
 .brand__name {
