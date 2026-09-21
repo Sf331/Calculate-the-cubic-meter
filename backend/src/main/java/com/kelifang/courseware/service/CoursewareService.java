@@ -57,6 +57,7 @@ public class CoursewareService extends ServiceImpl<CoursewareMapper, Courseware>
         Courseware cw = getVisible(id);
         if (!StringUtils.hasText(request.getComponentId()) || request.getComponentId().length() > 50)
             throw BizException.badRequest("组件 id 不能为空且不能超过 50 个字符");
+        if (!StringUtils.hasText(request.getAnswer())) throw BizException.badRequest("答案不能为空");
         JsonNode component;
         try {
             component = findComponent(objectMapper.readTree(cw.getSchemaJson()), request.getComponentId());
@@ -105,19 +106,47 @@ public class CoursewareService extends ServiceImpl<CoursewareMapper, Courseware>
             JsonNode root = objectMapper.readTree(json);
             if (!root.isObject() || !root.path("version").canConvertToInt() || !root.path("pages").isArray())
                 throw BizException.badRequest("课件必须包含 version 和 pages");
+            Set<String> pageIds = new HashSet<>();
+            Set<String> componentIds = new HashSet<>();
+            int interactionCount = 0;
             for (JsonNode page : root.path("pages")) {
                 if (!page.isObject() || !StringUtils.hasText(page.path("id").asText())
                         || !page.path("components").isArray()) throw BizException.badRequest("页面结构无效");
-                for (JsonNode component : page.path("components"))
+                if (!pageIds.add(page.path("id").asText())) throw BizException.badRequest("页面 id 不能重复");
+                for (JsonNode component : page.path("components")) {
                     if (!component.isObject() || !StringUtils.hasText(component.path("id").asText())
                             || !StringUtils.hasText(component.path("type").asText()))
                         throw BizException.badRequest("组件必须包含 id 和 type");
+                    if (!componentIds.add(component.path("id").asText())) throw BizException.badRequest("组件 id 不能重复");
+                    String type = component.path("type").asText();
+                    if (!Set.of("text", "blank", "single").contains(type)) throw BizException.badRequest("不支持的组件类型");
+                    if (!"text".equals(type)) interactionCount++;
+                    if ("text".equals(type) && !StringUtils.hasText(component.path("text").asText()))
+                        throw BizException.badRequest("文本组件内容不能为空");
+                    if (!"text".equals(type) && !StringUtils.hasText(component.path("prompt").asText()))
+                        throw BizException.badRequest("互动组件题干不能为空");
+                    if (!"text".equals(type) && !StringUtils.hasText(component.path("answer").asText()))
+                        throw BizException.badRequest("互动组件正确答案不能为空");
+                    if ("single".equals(type)) {
+                        JsonNode options = component.get("options");
+                        if (options == null || !options.isArray() || options.size() < 2)
+                            throw BizException.badRequest("单选题至少需要两个选项");
+                        boolean answerInOptions = false;
+                        for (JsonNode option : options)
+                            if (component.path("answer").asText().equals(option.asText())) answerInOptions = true;
+                        if (!answerInOptions) throw BizException.badRequest("单选题答案必须属于选项");
+                    }
+                }
             }
+            if (interactionCount == 0) throw BizException.badRequest("课件至少需要一个互动题");
         } catch (BizException e) { throw e; }
         catch (Exception e) { throw BizException.badRequest("课件 JSON 格式无效"); }
     }
 
-    private void requireLoggedIn() { if (UserContext.role() == null) throw BizException.forbidden("未登录"); }
-    private void requireEditor() { if (!EDITORS.contains(UserContext.role())) throw BizException.forbidden("只有教师及以上角色可以维护课件"); }
-    private void requireStudent() { if (!"STUDENT".equals(UserContext.role())) throw BizException.forbidden("只有学生可以提交互动答案"); }
+    private void requireLoggedIn() { 
+        if (UserContext.role() == null) throw BizException.forbidden("未登录"); }
+    private void requireEditor() { 
+        if (!EDITORS.contains(UserContext.role())) throw BizException.forbidden("只有教师及以上角色可以维护课件"); }
+    private void requireStudent() { 
+        if (!"STUDENT".equals(UserContext.role())) throw BizException.forbidden("只有学生可以提交互动答案"); }
 }
