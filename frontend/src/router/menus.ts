@@ -108,7 +108,20 @@ export const MENUS: MenuItem[] = [
     roles: ['STUDENT', 'PARENT'],
     component: () => import('../views/lesson-account/index.vue')
   },
-  { path: '/notice', title: '通知', short: '通知', roles: ['STUDENT', 'PARENT'] }
+  {
+    path: '/notice',
+    title: '通知',
+    short: '通知',
+    roles: ['STUDENT', 'PARENT'],
+    component: () => import('../views/notice/index.vue')
+  },
+  {
+    path: '/notice-publish',
+    title: '发布通知',
+    short: '通知',
+    roles: ['PRINCIPAL', 'ACADEMIC', 'TEACHER'],
+    component: () => import('../views/notice/manage.vue')
+  }
 ]
 
 export const menusFor = (role: string) =>
